@@ -1,0 +1,23 @@
+[package]
+name = "zkfhe-generator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "CLI tool for generating zkFHE circuit parameters and Noir TOML files"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "zkfhe-generator"
+path = "src/main.rs"
+
+[dependencies]
+shared = { package = "zkfhe-shared", path = "../shared" }
+greco = { package = "zkfhe-greco", path = "../circuits/greco" }
+clap = { workspace = true }
+anyhow = { workspace = true }
