@@ -11,7 +11,7 @@
 //! - **Validation**: Comprehensive parameter validation and error handling
 //! - **Beautiful Output**: Emoji-rich progress indicators and user feedback
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use shared::bfv::BfvConfig;
 use shared::circuit::{Circuit, CircuitConfig, CircuitMetadata};
@@ -164,10 +164,10 @@ fn get_bfv_config(preset: &str) -> anyhow::Result<BfvConfig> {
 fn generate_circuit_params(
     circuit_name: &str,
     preset: &str,
-    output_dir: &PathBuf,
+    output_dir: &Path,
 ) -> anyhow::Result<()> {
-    println!("🔧 Generating parameters for circuit: {}", circuit_name);
-    println!("📋 Using preset: {}", preset);
+    println!("🔧 Generating parameters for circuit: {circuit_name}");
+    println!("📋 Using preset: {preset}");
 
     // Get circuit implementation
     let circuit = get_circuit(circuit_name)?;
@@ -186,10 +186,7 @@ fn generate_circuit_params(
         custom_params: None,
         metadata: CircuitMetadata {
             version: "1.0.0".to_string(),
-            description: format!(
-                "Generated for {} circuit with {} preset",
-                circuit_name, preset
-            ),
+            description: format!("Generated for {circuit_name} circuit with {preset} preset",),
             created_at: chrono::Utc::now(),
         },
     };

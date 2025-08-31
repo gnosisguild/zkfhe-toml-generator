@@ -62,8 +62,8 @@ pub mod validation {
     pub fn validate_degree_bounds(degree: usize) -> Result<(), Box<dyn Error>> {
         validate_degree(degree)?;
 
-        if degree < 1024 || degree > 8192 {
-            return Err("Degree must be between 1024 and 8192".into());
+        if degree % 2 != 0 {
+            return Err("Degree must be a power of 2".into());
         }
         Ok(())
     }
@@ -104,7 +104,7 @@ pub mod validation {
 
         for (i, modulus) in moduli.iter().enumerate() {
             if *modulus == 0 {
-                return Err(format!("Ciphertext modulus at index {} cannot be zero", i).into());
+                return Err(format!("Ciphertext modulus at index {i} cannot be zero").into());
             }
         }
         Ok(())
