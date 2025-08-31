@@ -1421,6 +1421,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "tempfile",
  "toml",
  "zkfhe-shared",
 ]

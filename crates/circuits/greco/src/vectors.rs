@@ -557,15 +557,15 @@ mod tests {
         (params, sk, pk)
     }
 
-        #[test]
+    #[test]
     fn test_vector_lengths() {
         let vecs = GrecoVectors::new(1, 2048);
         assert!(vecs.validate_dimensions());
-        
+
         // Test that vectors with correct dimensions pass validation
         let vecs_2_moduli = GrecoVectors::new(2, 2048);
         assert!(vecs_2_moduli.validate_dimensions());
-        
+
         let vecs_different_degree = GrecoVectors::new(1, 1024);
         assert!(vecs_different_degree.validate_dimensions());
     }

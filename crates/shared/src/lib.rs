@@ -5,6 +5,7 @@
 pub mod bfv;
 pub mod circuit;
 pub mod constants;
+pub mod toml;
 pub mod utils;
 
 pub use bfv::{BfvConfig, BfvHelper, EncryptionData};
