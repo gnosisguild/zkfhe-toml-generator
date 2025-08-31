@@ -10,10 +10,10 @@ use fhe_math::rq::Poly;
 use fhe_traits::*;
 use num_bigint::BigInt;
 
+use crate::constants::get_zkp_modulus;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::sync::Arc;
-use crate::constants::get_zkp_modulus;
 
 /// Configuration for BFV parameters
 #[derive(Clone, Debug)]

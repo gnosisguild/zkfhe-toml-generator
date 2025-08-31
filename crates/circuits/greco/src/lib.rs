@@ -6,25 +6,24 @@ pub mod bounds;
 pub mod toml;
 pub mod vectors;
 
-use anyhow::Result;
 use shared::Circuit;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub struct GrecoCircuit;
 
 impl Circuit for GrecoCircuit {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "greco"
     }
 
-    fn description(&self) -> &str {
+    fn description(&self) -> &'static str {
         "Greco zero-knowledge proof circuit for BFV homomorphic encryption"
     }
 
     fn generate_params(
         &self,
         _config: &shared::circuit::CircuitConfig,
-    ) -> Result<shared::circuit::CircuitParams> {
+    ) -> Result<shared::circuit::CircuitParams, Box<dyn std::error::Error>> {
         todo!("Implement parameter generation for Greco circuit")
     }
 
@@ -32,11 +31,14 @@ impl Circuit for GrecoCircuit {
         &self,
         _params: &shared::circuit::CircuitParams,
         _output_dir: &Path,
-    ) -> Result<PathBuf> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         todo!("Implement TOML generation for Greco circuit")
     }
 
-    fn validate_config(&self, _config: &shared::circuit::CircuitConfig) -> Result<()> {
+    fn validate_config(
+        &self,
+        _config: &shared::circuit::CircuitConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         todo!("Implement config validation for Greco circuit")
     }
 }

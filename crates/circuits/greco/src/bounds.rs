@@ -3,12 +3,13 @@
 //! This module handles the computation of valid ranges for polynomial coefficients
 //! and validation that input vectors stay within these bounds.
 
+use bigint_poly::{reduce_and_center_scalar, reduce_scalar};
 use fhe::bfv::BfvParameters;
 use num_bigint::BigInt;
-use num_traits::{ToPrimitive, Signed};
-use bigint_poly::{reduce_and_center_scalar, reduce_scalar};
-use std::sync::Arc;
+use num_traits::{Signed, ToPrimitive};
+use shared::circuit::{CircuitBounds, CircuitDimensions, CircuitVectors};
 use shared::constants::get_zkp_modulus;
+use std::sync::Arc;
 
 /// Bounds for Greco circuit polynomial coefficients
 #[derive(Clone, Debug)]
@@ -17,7 +18,7 @@ pub struct GrecoBounds {
     pub q_mod_t: BigInt,
     pub moduli: Vec<u64>,
     pub k0is: Vec<u64>,
-    
+
     // Bounds for different polynomial types
     pub u_bound: u64,
     pub e_bound: u64,
@@ -41,16 +42,16 @@ impl GrecoBounds {
         let n = BigInt::from(params.degree());
         let t = BigInt::from(params.plaintext());
         let ctx = params.ctx_at_level(level)?;
-        
+
         // Calculate q mod t
         let q_mod_t = reduce_and_center_scalar(
             &BigInt::from(ctx.modulus().clone()),
             &BigInt::from(t.to_u64().unwrap()),
         );
-        
+
         // ZKP modulus (BN254 scalar field)
         let p = get_zkp_modulus();
-        
+
         // Reduce q_mod_t to standard form for Noir compatibility
         let q_mod_t_mod_p = reduce_scalar(&q_mod_t, &p);
 
@@ -60,7 +61,7 @@ impl GrecoBounds {
                 .to_i64()
                 .ok_or_else(|| "Failed to convert variance to i64".to_string())?,
         );
-        
+
         let u_bound = gauss_bound.clone();
         let e_bound = gauss_bound.clone();
 
@@ -113,12 +114,13 @@ impl GrecoBounds {
             let r1_up: BigInt = (&ptxt_up_bound * k0qi.abs()
                 + ((&n * &gauss_bound + BigInt::from(2)) * &qi_bound + &gauss_bound))
                 / &qi_bigint;
-            
+
             r1_low_bounds.push(r1_low.clone());
             r1_up_bounds.push(r1_up.clone());
 
             // P1 and P2 bounds
-            let p1_bound: BigInt = ((&n * &gauss_bound + BigInt::from(2)) * &qi_bound + &gauss_bound) / &qi_bigint;
+            let p1_bound: BigInt =
+                ((&n * &gauss_bound + BigInt::from(2)) * &qi_bound + &gauss_bound) / &qi_bigint;
             p1_bounds.push(p1_bound.clone());
             p2_bounds.push(qi_bound.clone());
         }
@@ -141,6 +143,61 @@ impl GrecoBounds {
     }
 }
 
+impl CircuitDimensions for GrecoBounds {
+    fn num_moduli(&self) -> usize {
+        self.moduli.len()
+    }
+
+    fn degree(&self) -> usize {
+        // The degree is not directly stored in bounds, but we can derive it
+        // from the number of bounds which should match the degree
+        // This is a reasonable approximation for validation purposes
+        self.pk_bounds.len()
+    }
+
+    fn level(&self) -> usize {
+        0 // Default level, can be overridden if needed
+    }
+}
+
+impl CircuitBounds for GrecoBounds {
+    fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "q_mod_t": self.q_mod_t.to_string(),
+            "moduli": self.moduli,
+            "k0is": self.k0is,
+            "u_bound": self.u_bound,
+            "e_bound": self.e_bound,
+            "k1_low_bound": self.k1_low_bound,
+            "k1_up_bound": self.k1_up_bound,
+            "pk_bounds": self.pk_bounds,
+            "r1_low_bounds": self.r1_low_bounds,
+            "r1_up_bounds": self.r1_up_bounds,
+            "r2_bounds": self.r2_bounds,
+            "p1_bounds": self.p1_bounds,
+            "p2_bounds": self.p2_bounds,
+        })
+    }
+
+    fn validate_vectors<V: CircuitVectors>(
+        &self,
+        vectors: &V,
+        _zkp_modulus: &num_bigint::BigInt,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Basic validation - ensure dimensions match
+        if vectors.num_moduli() != self.num_moduli() {
+            return Err("Vector and bounds have different number of moduli".into());
+        }
+
+        if vectors.degree() != self.degree() {
+            return Err("Vector and bounds have different degrees".into());
+        }
+
+        // Additional validation can be added here
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,7 +216,7 @@ mod tests {
     fn test_bounds_computation() {
         let params = setup_test_params();
         let bounds = GrecoBounds::compute(&params, 0).unwrap();
-        
+
         assert_eq!(bounds.moduli.len(), 1);
         assert_eq!(bounds.k0is.len(), 1);
         assert_eq!(bounds.pk_bounds.len(), 1);
