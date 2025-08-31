@@ -1399,6 +1399,7 @@ name = "zkfhe-generator"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "zkfhe-greco",
  "zkfhe-shared",

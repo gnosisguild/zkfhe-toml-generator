@@ -21,3 +21,4 @@ shared = { package = "zkfhe-shared", path = "../shared" }
 greco = { package = "zkfhe-greco", path = "../circuits/greco" }
 clap = { workspace = true }
 anyhow = { workspace = true }
+chrono = { workspace = true }
