@@ -182,7 +182,6 @@ impl CircuitBounds for GrecoBounds {
     fn validate_vectors<V: CircuitVectors>(
         &self,
         vectors: &V,
-        _zkp_modulus: &num_bigint::BigInt,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Basic validation - ensure dimensions match
         if vectors.num_moduli() != self.num_moduli() {

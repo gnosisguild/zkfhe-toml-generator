@@ -462,7 +462,8 @@ impl CircuitVectors for GrecoVectors {
         Self::new(params.num_moduli(), params.degree())
     }
 
-    fn standard_form(&self, zkp_modulus: &num_bigint::BigInt) -> Self {
+    fn standard_form(&self) -> Self {
+        let zkp_modulus = &shared::constants::get_zkp_modulus();
         GrecoVectors {
             pk0is: reduce_coefficients_2d(&self.pk0is, zkp_modulus),
             pk1is: reduce_coefficients_2d(&self.pk1is, zkp_modulus),
@@ -498,7 +499,10 @@ impl CircuitVectors for GrecoVectors {
         })
     }
 
-    fn check_correct_lengths(&self, num_moduli: usize, degree: usize) -> bool {
+    fn validate_dimensions(&self) -> bool {
+        let num_moduli = self.num_moduli();
+        let degree = self.degree();
+
         // Helper function to check 2D vector lengths
         let check_2d_lengths =
             |vec: &Vec<Vec<BigInt>>, expected_outer_len: usize, expected_inner_len: usize| {
@@ -553,22 +557,26 @@ mod tests {
         (params, sk, pk)
     }
 
-    #[test]
+        #[test]
     fn test_vector_lengths() {
         let vecs = GrecoVectors::new(1, 2048);
         assert!(vecs.validate_dimensions());
-        assert!(vecs.check_correct_lengths(1, 2048));
-        assert!(!vecs.check_correct_lengths(2, 2048)); // Wrong moduli count
-        assert!(!vecs.check_correct_lengths(1, 1024)); // Wrong degree
+        
+        // Test that vectors with correct dimensions pass validation
+        let vecs_2_moduli = GrecoVectors::new(2, 2048);
+        assert!(vecs_2_moduli.validate_dimensions());
+        
+        let vecs_different_degree = GrecoVectors::new(1, 1024);
+        assert!(vecs_different_degree.validate_dimensions());
     }
 
     #[test]
     fn test_standard_form() {
         let vecs = GrecoVectors::new(1, 2048);
-        let p = shared::constants::get_zkp_modulus();
-        let std_form = vecs.standard_form(&p);
+        let std_form = vecs.standard_form();
 
         // Check that all vectors are properly reduced
+        let p = shared::constants::get_zkp_modulus();
         assert!(std_form.u.iter().all(|x| x < &p));
         assert!(std_form.e0.iter().all(|x| x < &p));
         assert!(std_form.e1.iter().all(|x| x < &p));
@@ -593,7 +601,7 @@ mod tests {
             GrecoVectors::compute(&pt, &u_rns, &e0_rns, &e1_rns, &_ct, &pk, &params).unwrap();
 
         // Check dimensions
-        assert!(vecs.check_correct_lengths(1, params.degree()));
+        assert!(vecs.validate_dimensions());
     }
 
     #[test]

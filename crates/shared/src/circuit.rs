@@ -49,18 +49,13 @@ pub trait CircuitVectors: CircuitDimensions {
         P: CircuitDimensions;
 
     /// Convert to standard form (reduced modulo ZKP modulus)
-    fn standard_form(&self, zkp_modulus: &num_bigint::BigInt) -> Self;
+    fn standard_form(&self) -> Self;
 
     /// Convert to JSON representation
     fn to_json(&self) -> serde_json::Value;
 
     /// Validate vector dimensions using derived parameters
-    fn validate_dimensions(&self) -> bool {
-        self.check_correct_lengths(self.num_moduli(), self.degree())
-    }
-
-    /// Check correct lengths (internal method)
-    fn check_correct_lengths(&self, num_moduli: usize, degree: usize) -> bool;
+    fn validate_dimensions(&self) -> bool;
 }
 
 /// Enhanced trait for circuit bounds with derived dimensions
@@ -72,7 +67,6 @@ pub trait CircuitBounds: CircuitDimensions {
     fn validate_vectors<V: CircuitVectors>(
         &self,
         vectors: &V,
-        zkp_modulus: &num_bigint::BigInt,
     ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
