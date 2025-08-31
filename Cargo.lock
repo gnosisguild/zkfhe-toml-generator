@@ -1194,6 +1194,7 @@ dependencies = [
  "anyhow",
  "bigint-poly",
  "blake3",
+ "fhe",
  "itertools 0.14.0",
  "num-bigint",
  "num-traits",

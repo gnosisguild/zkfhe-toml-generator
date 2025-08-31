@@ -9,10 +9,11 @@ use fhe::bfv::{
 use fhe_math::rq::Poly;
 use fhe_traits::*;
 use num_bigint::BigInt;
-use num_traits::Num;
+
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use std::sync::Arc;
+use crate::constants::get_zkp_modulus;
 
 /// Configuration for BFV parameters
 #[derive(Clone, Debug)]
@@ -94,10 +95,6 @@ impl BfvHelper {
 
     /// Get the default ZKP modulus
     pub fn default_zkp_modulus() -> BigInt {
-        BigInt::from_str_radix(
-            "21888242871839275222246405745257275088548364400416034343698204186575808495617",
-            10,
-        )
-        .expect("Invalid ZKP modulus")
+        get_zkp_modulus()
     }
 }
