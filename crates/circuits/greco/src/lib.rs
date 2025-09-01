@@ -31,6 +31,125 @@ use std::path::Path;
 /// proofs.
 pub struct GrecoCircuit;
 
+impl GrecoCircuit {
+    /// Get BFV helper with computed parameters
+    ///
+    /// This method creates a BFV helper from the provided configuration,
+    /// which can be used for encryption operations and parameter access.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The circuit configuration containing BFV parameters
+    ///
+    /// # Returns
+    ///
+    /// Returns the BFV helper or an error if creation fails.
+    pub fn get_bfv_helper(
+        &self,
+        config: &shared::circuit::CircuitConfig,
+    ) -> Result<shared::bfv::BfvHelper, shared::errors::ZkfheError> {
+        shared::bfv::BfvHelper::new(config.bfv_config.clone()).map_err(|e| {
+            shared::errors::ZkfheError::Bfv {
+                message: e.to_string(),
+            }
+        })
+    }
+
+    /// Get sample encryption data for vector computation
+    ///
+    /// This method generates sample encryption data that is used to compute
+    /// the input validation vectors for zero-knowledge proofs.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The circuit configuration containing BFV parameters
+    ///
+    /// # Returns
+    ///
+    /// Returns the sample encryption data or an error if generation fails.
+    pub fn get_sample_encryption_data(
+        &self,
+        config: &shared::circuit::CircuitConfig,
+    ) -> Result<shared::bfv::EncryptionData, shared::errors::ZkfheError> {
+        let bfv_helper = self.get_bfv_helper(config)?;
+        bfv_helper
+            .generate_sample_encryption()
+            .map_err(|e| shared::errors::ZkfheError::Bfv {
+                message: e.to_string(),
+            })
+    }
+
+    /// Get computed bounds directly
+    ///
+    /// This method computes the bounds for polynomial coefficients that
+    /// are used in zero-knowledge proof validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The circuit configuration containing BFV parameters
+    ///
+    /// # Returns
+    ///
+    /// Returns the computed bounds or an error if computation fails.
+    pub fn get_bounds(
+        &self,
+        config: &shared::circuit::CircuitConfig,
+    ) -> Result<bounds::GrecoBounds, shared::errors::ZkfheError> {
+        let bfv_helper = self.get_bfv_helper(config)?;
+        bounds::GrecoBounds::compute(&bfv_helper.params, 0)
+    }
+
+    /// Get computed vectors directly
+    ///
+    /// This method computes the input validation vectors that are used
+    /// in zero-knowledge proofs to validate encryption correctness.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The circuit configuration containing BFV parameters
+    ///
+    /// # Returns
+    ///
+    /// Returns the computed vectors or an error if computation fails.
+    pub fn get_vectors(
+        &self,
+        config: &shared::circuit::CircuitConfig,
+    ) -> Result<vectors::GrecoVectors, shared::errors::ZkfheError> {
+        let encryption_data = self.get_sample_encryption_data(config)?;
+        let bfv_helper = self.get_bfv_helper(config)?;
+
+        vectors::GrecoVectors::compute(
+            &encryption_data.plaintext,
+            &encryption_data.u_rns,
+            &encryption_data.e0_rns,
+            &encryption_data.e1_rns,
+            &encryption_data.ciphertext,
+            &encryption_data.public_key,
+            &bfv_helper.params,
+        )
+    }
+
+    /// Get vectors in standard form (reduced modulo ZKP modulus)
+    ///
+    /// This method returns the vectors reduced modulo the ZKP modulus,
+    /// which is the format required for zero-knowledge proof circuits.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - The circuit configuration containing BFV parameters
+    ///
+    /// # Returns
+    ///
+    /// Returns the vectors in standard form or an error if computation fails.
+    pub fn get_vectors_standard_form(
+        &self,
+        config: &shared::circuit::CircuitConfig,
+    ) -> Result<vectors::GrecoVectors, shared::errors::ZkfheError> {
+        let vectors = self.get_vectors(config)?;
+        Ok(vectors.standard_form())
+    }
+}
+
 impl Circuit for GrecoCircuit {
     /// Returns the name of the Greco circuit
     ///
@@ -69,37 +188,13 @@ impl Circuit for GrecoCircuit {
         &self,
         config: &shared::circuit::CircuitConfig,
     ) -> Result<shared::circuit::CircuitParams, shared::errors::ZkfheError> {
-        // Create BFV helper from configuration
-        let bfv_helper = BfvHelper::new(config.bfv_config.clone())?;
-
-        // Generate sample encryption data
-        let encryption_data = bfv_helper.generate_sample_encryption()?;
-
-        // Create bounds from BFV parameters
-        let bounds = bounds::GrecoBounds::compute(&bfv_helper.params, 0)?;
-
-        // Create vectors from the encryption data
-        let vectors = vectors::GrecoVectors::compute(
-            &encryption_data.plaintext,
-            &encryption_data.u_rns,
-            &encryption_data.e0_rns,
-            &encryption_data.e1_rns,
-            &encryption_data.ciphertext,
-            &encryption_data.public_key,
-            &bfv_helper.params,
-        )?;
-
-        // Convert vectors to standard form (reduced modulo ZKP modulus)
-        let vectors_standard_form = vectors.standard_form();
-
-        // Create TOML generator
-        let toml_generator = toml::GrecoTomlGenerator::new(bounds, vectors_standard_form);
-
-        // Generate TOML file (we'll handle output directory in the generate_toml method)
-        // For now, just create the TOML string to validate it works
-        let _toml_string = toml_generator.to_toml_string()?;
+        // Validate that we can compute everything using our public methods
+        let _bounds = self.get_bounds(config)?;
+        let _vectors = self.get_vectors(config)?;
+        let _vectors_standard = self.get_vectors_standard_form(config)?;
 
         Ok(shared::circuit::CircuitParams {
+            config: config.clone(),
             metadata: config.metadata.clone(),
         })
     }
@@ -123,30 +218,15 @@ impl Circuit for GrecoCircuit {
     /// Returns `Ok(())` if the TOML file was created successfully, or an error otherwise.
     fn generate_toml(
         &self,
-        _params: &shared::circuit::CircuitParams,
+        params: &shared::circuit::CircuitParams,
         output_dir: &Path,
     ) -> Result<(), shared::errors::ZkfheError> {
-        // Create BFV helper and generate data
-        let bfv_helper = BfvHelper::new(shared::bfv::BfvConfig::default())?;
-        let encryption_data = bfv_helper.generate_sample_encryption()?;
-
-        // Create bounds and vectors
-        let bounds = bounds::GrecoBounds::compute(&bfv_helper.params, 0)?;
-        let vectors = vectors::GrecoVectors::compute(
-            &encryption_data.plaintext,
-            &encryption_data.u_rns,
-            &encryption_data.e0_rns,
-            &encryption_data.e1_rns,
-            &encryption_data.ciphertext,
-            &encryption_data.public_key,
-            &bfv_helper.params,
-        )?;
-
-        // Convert vectors to standard form (reduced modulo ZKP modulus)
-        let vectors_standard_form = vectors.standard_form();
+        // Use the config from the params to get the data
+        let bounds = self.get_bounds(&params.config)?;
+        let vectors_standard = self.get_vectors_standard_form(&params.config)?;
 
         // Create TOML generator and generate file
-        let toml_generator = toml::GrecoTomlGenerator::new(bounds, vectors_standard_form);
+        let toml_generator = toml::GrecoTomlGenerator::new(bounds, vectors_standard);
         toml_generator.generate_toml(output_dir)?;
 
         Ok(())

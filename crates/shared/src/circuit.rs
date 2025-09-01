@@ -200,6 +200,8 @@ pub struct CustomParams {
 /// and metadata about the generation process.
 #[derive(Clone, Debug)]
 pub struct CircuitParams {
+    /// The configuration used to generate these parameters
+    pub config: CircuitConfig,
     /// Metadata about the circuit generation
     pub metadata: CircuitMetadata,
 }
