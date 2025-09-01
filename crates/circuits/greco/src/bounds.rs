@@ -9,6 +9,7 @@ use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive};
 use shared::circuit::{CircuitBounds, CircuitDimensions, CircuitVectors};
 use shared::constants::get_zkp_modulus;
+use shared::errors::ZkfheResult;
 use std::sync::Arc;
 
 /// Bounds for Greco circuit polynomial coefficients
@@ -34,10 +35,7 @@ pub struct GrecoBounds {
 
 impl GrecoBounds {
     /// Compute bounds from BFV parameters
-    pub fn compute(
-        params: &Arc<BfvParameters>,
-        level: usize,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn compute(params: &Arc<BfvParameters>, level: usize) -> ZkfheResult<Self> {
         // Get cyclotomic degree and context at provided level
         let n = BigInt::from(params.degree());
         let t = BigInt::from(params.plaintext());
@@ -179,17 +177,20 @@ impl CircuitBounds for GrecoBounds {
         })
     }
 
-    fn validate_vectors<V: CircuitVectors>(
-        &self,
-        vectors: &V,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn validate_vectors<V: CircuitVectors>(&self, vectors: &V) -> ZkfheResult<()> {
         // Basic validation - ensure dimensions match
         if vectors.num_moduli() != self.num_moduli() {
-            return Err("Vector and bounds have different number of moduli".into());
+            return Err(shared::errors::ValidationError::General {
+                message: "Vector and bounds have different number of moduli".to_string(),
+            }
+            .into());
         }
 
         if vectors.degree() != self.degree() {
-            return Err("Vector and bounds have different degrees".into());
+            return Err(shared::errors::ValidationError::General {
+                message: "Vector and bounds have different degrees".to_string(),
+            }
+            .into());
         }
 
         // Additional validation can be added here

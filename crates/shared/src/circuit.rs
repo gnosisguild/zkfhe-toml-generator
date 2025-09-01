@@ -12,6 +12,7 @@
 use std::path::Path;
 
 use crate::bfv::BfvConfig;
+use crate::errors::ZkfheResult;
 
 /// Circuit trait that all circuit implementations must implement
 ///
@@ -44,17 +45,12 @@ pub trait Circuit {
     /// # Returns
     ///
     /// Returns the generated circuit parameters or an error if generation fails.
-    fn generate_params(
-        &self,
-        config: &CircuitConfig,
-    ) -> Result<CircuitParams, Box<dyn std::error::Error>>;
+    fn generate_params(&self, config: &CircuitConfig) -> ZkfheResult<CircuitParams>;
 
     /// Generate TOML file for the circuit
     ///
     /// This method should create a TOML file containing all the parameters
     /// needed for the Noir circuit to function correctly.
-    ///
-    /// # Arguments
     ///
     /// * `params` - The generated circuit parameters
     /// * `output_dir` - The directory where the TOML file should be created
@@ -62,11 +58,7 @@ pub trait Circuit {
     /// # Returns
     ///
     /// Returns `Ok(())` if the TOML file was created successfully, or an error otherwise.
-    fn generate_toml(
-        &self,
-        params: &CircuitParams,
-        output_dir: &Path,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn generate_toml(&self, params: &CircuitParams, output_dir: &Path) -> ZkfheResult<()>;
 
     /// Validate circuit configuration
     ///
@@ -80,7 +72,7 @@ pub trait Circuit {
     /// # Returns
     ///
     /// Returns `Ok(())` if the configuration is valid, or an error otherwise.
-    fn validate_config(&self, config: &CircuitConfig) -> Result<(), Box<dyn std::error::Error>>;
+    fn validate_config(&self, config: &CircuitConfig) -> ZkfheResult<()>;
 }
 
 /// Trait for circuit parameters that can provide dimensions
@@ -171,10 +163,7 @@ pub trait CircuitBounds: CircuitDimensions {
     /// # Returns
     ///
     /// Returns `Ok(())` if the vectors satisfy the bounds, or an error otherwise.
-    fn validate_vectors<V: CircuitVectors>(
-        &self,
-        vectors: &V,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+    fn validate_vectors<V: CircuitVectors>(&self, vectors: &V) -> ZkfheResult<()>;
 }
 
 /// Configuration for circuit generation

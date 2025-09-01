@@ -18,6 +18,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use shared::circuit::{CircuitDimensions, CircuitVectors};
+use shared::errors::ZkfheResult;
 use shared::utils::{to_string_1d_vec, to_string_2d_vec};
 
 /// Type alias for the complex tuple type used in vector computation
@@ -100,7 +101,7 @@ impl GrecoVectors {
         ct: &Ciphertext,
         pk: &PublicKey,
         params: &Arc<BfvParameters>,
-    ) -> Result<GrecoVectors, Box<dyn std::error::Error>> {
+    ) -> ZkfheResult<GrecoVectors> {
         // Get context, plaintext modulus, and degree
         let ctx = params.ctx_at_level(pt.level())?;
         let t = Modulus::new(params.plaintext())?;

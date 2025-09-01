@@ -68,7 +68,7 @@ impl Circuit for GrecoCircuit {
     fn generate_params(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<shared::circuit::CircuitParams, Box<dyn std::error::Error>> {
+    ) -> Result<shared::circuit::CircuitParams, shared::errors::ZkfheError> {
         // Create BFV helper from configuration
         let bfv_helper = BfvHelper::new(config.bfv_config.clone())?;
 
@@ -125,7 +125,7 @@ impl Circuit for GrecoCircuit {
         &self,
         _params: &shared::circuit::CircuitParams,
         output_dir: &Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), shared::errors::ZkfheError> {
         // Create BFV helper and generate data
         let bfv_helper = BfvHelper::new(shared::bfv::BfvConfig::default())?;
         let encryption_data = bfv_helper.generate_sample_encryption()?;
@@ -172,7 +172,7 @@ impl Circuit for GrecoCircuit {
     fn validate_config(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), shared::errors::ZkfheError> {
         // Validate BFV configuration using shared validation utilities
         shared::validation::validate_degree_bounds(config.bfv_config.degree)?;
         shared::validation::validate_plaintext_modulus(config.bfv_config.plaintext_modulus)?;

@@ -15,6 +15,7 @@
 pub mod bfv;
 pub mod circuit;
 pub mod constants;
+pub mod errors;
 pub mod toml;
 pub mod utils;
 
@@ -22,6 +23,7 @@ pub mod utils;
 pub use bfv::{BfvConfig, BfvHelper, EncryptionData};
 pub use circuit::{Circuit, CircuitConfig, CircuitMetadata, CircuitParams, CustomParams};
 pub use constants::{ZKP_MODULUS, get_zkp_modulus};
+pub use errors::{BfvError, CircuitError, TomlError, ValidationError, ZkfheError, ZkfheResult};
 pub use toml::TomlGenerator;
 
 /// Validation utilities for common parameters
@@ -29,7 +31,7 @@ pub use toml::TomlGenerator;
 /// This module provides functions to validate cryptographic parameters
 /// and ensure they meet security requirements.
 pub mod validation {
-    use std::error::Error;
+    use crate::errors::{ValidationError, ZkfheResult};
 
     /// Validate that a degree is a valid power of 2
     ///
@@ -40,9 +42,13 @@ pub mod validation {
     /// # Returns
     ///
     /// Returns `Ok(())` if the degree is a valid power of 2, or an error otherwise.
-    pub fn validate_degree(degree: usize) -> Result<(), Box<dyn Error>> {
+    pub fn validate_degree(degree: usize) -> ZkfheResult<()> {
         if !degree.is_power_of_two() {
-            return Err("Degree must be a power of 2".into());
+            return Err(ValidationError::Degree {
+                degree,
+                reason: "must be a power of 2".to_string(),
+            }
+            .into());
         }
         Ok(())
     }
@@ -59,11 +65,15 @@ pub mod validation {
     /// # Returns
     ///
     /// Returns `Ok(())` if the degree is valid, or an error otherwise.
-    pub fn validate_degree_bounds(degree: usize) -> Result<(), Box<dyn Error>> {
+    pub fn validate_degree_bounds(degree: usize) -> ZkfheResult<()> {
         validate_degree(degree)?;
 
         if degree % 2 != 0 {
-            return Err("Degree must be a power of 2".into());
+            return Err(ValidationError::Degree {
+                degree,
+                reason: "must be even".to_string(),
+            }
+            .into());
         }
         Ok(())
     }
@@ -79,9 +89,13 @@ pub mod validation {
     /// # Returns
     ///
     /// Returns `Ok(())` if the modulus is valid, or an error otherwise.
-    pub fn validate_plaintext_modulus(modulus: u64) -> Result<(), Box<dyn Error>> {
+    pub fn validate_plaintext_modulus(modulus: u64) -> ZkfheResult<()> {
         if modulus == 0 {
-            return Err("Plaintext modulus cannot be zero".into());
+            return Err(ValidationError::PlaintextModulus {
+                modulus,
+                reason: "cannot be zero".to_string(),
+            }
+            .into());
         }
         Ok(())
     }
@@ -97,14 +111,20 @@ pub mod validation {
     /// # Returns
     ///
     /// Returns `Ok(())` if all moduli are valid, or an error otherwise.
-    pub fn validate_ciphertext_moduli(moduli: &[u64]) -> Result<(), Box<dyn Error>> {
+    pub fn validate_ciphertext_moduli(moduli: &[u64]) -> ZkfheResult<()> {
         if moduli.is_empty() {
-            return Err("At least one ciphertext modulus must be provided".into());
+            return Err(ValidationError::CiphertextModuli {
+                reason: "at least one ciphertext modulus must be provided".to_string(),
+            }
+            .into());
         }
 
         for (i, modulus) in moduli.iter().enumerate() {
             if *modulus == 0 {
-                return Err(format!("Ciphertext modulus at index {i} cannot be zero").into());
+                return Err(ValidationError::CiphertextModuli {
+                    reason: format!("ciphertext modulus at index {i} cannot be zero"),
+                }
+                .into());
             }
         }
         Ok(())
