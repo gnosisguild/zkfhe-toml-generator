@@ -9,7 +9,7 @@ use num_bigint::BigInt;
 use num_traits::{Signed, ToPrimitive};
 use shared::circuit::{CircuitBounds, CircuitDimensions, CircuitVectors};
 use shared::constants::get_zkp_modulus;
-use shared::errors::ZkfheResult;
+use shared::errors::ZkFheResult;
 use std::sync::Arc;
 
 /// Bounds for Greco circuit polynomial coefficients
@@ -35,7 +35,7 @@ pub struct GrecoBounds {
 
 impl GrecoBounds {
     /// Compute bounds from BFV parameters
-    pub fn compute(params: &Arc<BfvParameters>, level: usize) -> ZkfheResult<Self> {
+    pub fn compute(params: &Arc<BfvParameters>, level: usize) -> ZkFheResult<Self> {
         // Get cyclotomic degree and context at provided level
         let n = BigInt::from(params.degree());
         let t = BigInt::from(params.plaintext());
@@ -177,7 +177,7 @@ impl CircuitBounds for GrecoBounds {
         })
     }
 
-    fn validate_vectors<V: CircuitVectors>(&self, vectors: &V) -> ZkfheResult<()> {
+    fn validate_vectors<V: CircuitVectors>(&self, vectors: &V) -> ZkFheResult<()> {
         // Basic validation - ensure dimensions match
         if vectors.num_moduli() != self.num_moduli() {
             return Err(shared::errors::ValidationError::General {

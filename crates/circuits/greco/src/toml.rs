@@ -5,7 +5,7 @@
 use crate::bounds::GrecoBounds;
 use crate::vectors::GrecoVectors;
 use serde::Serialize;
-use shared::errors::ZkfheResult;
+use shared::errors::ZkFheResult;
 use shared::toml::TomlGenerator;
 use shared::utils::to_string_1d_vec;
 
@@ -77,7 +77,7 @@ struct ProverTomlFormat {
 }
 
 impl TomlGenerator for GrecoTomlGenerator {
-    fn to_toml_string(&self) -> ZkfheResult<String> {
+    fn to_toml_string(&self) -> ZkFheResult<String> {
         let toml_data = ProverTomlFormat {
             params: ProverParamsTable {
                 crypto: ProverCryptoTable {

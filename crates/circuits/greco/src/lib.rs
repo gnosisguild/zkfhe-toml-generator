@@ -48,12 +48,12 @@ impl GrecoCircuit {
     pub fn get_sample_encryption_data(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<sample::EncryptionData, shared::errors::ZkfheError> {
+    ) -> Result<sample::EncryptionData, shared::errors::ZkFheError> {
         generate_sample_encryption(&config.bfv_parameters)
-            .map_err(|e| shared::errors::ZkfheError::Bfv {
+            .map_err(|e| shared::errors::ZkFheError::Bfv {
                 message: e.to_string(),
             })
-            .map_err(|e| shared::errors::ZkfheError::Bfv {
+            .map_err(|e| shared::errors::ZkFheError::Bfv {
                 message: e.to_string(),
             })
     }
@@ -73,7 +73,7 @@ impl GrecoCircuit {
     pub fn get_bounds(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<bounds::GrecoBounds, shared::errors::ZkfheError> {
+    ) -> Result<bounds::GrecoBounds, shared::errors::ZkFheError> {
         bounds::GrecoBounds::compute(&config.bfv_parameters, 0)
     }
 
@@ -92,7 +92,7 @@ impl GrecoCircuit {
     pub fn get_vectors(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<vectors::GrecoVectors, shared::errors::ZkfheError> {
+    ) -> Result<vectors::GrecoVectors, shared::errors::ZkFheError> {
         let encryption_data = self.get_sample_encryption_data(config)?;
 
         vectors::GrecoVectors::compute(
@@ -121,7 +121,7 @@ impl GrecoCircuit {
     pub fn get_vectors_standard_form(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<vectors::GrecoVectors, shared::errors::ZkfheError> {
+    ) -> Result<vectors::GrecoVectors, shared::errors::ZkFheError> {
         let vectors = self.get_vectors(config)?;
         Ok(vectors.standard_form())
     }
@@ -164,7 +164,7 @@ impl Circuit for GrecoCircuit {
     fn generate_params(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<shared::circuit::CircuitParams, shared::errors::ZkfheError> {
+    ) -> Result<shared::circuit::CircuitParams, shared::errors::ZkFheError> {
         // Validate that we can compute everything using our public methods
         let _bounds = self.get_bounds(config)?;
         let _vectors = self.get_vectors(config)?;
@@ -197,7 +197,7 @@ impl Circuit for GrecoCircuit {
         &self,
         params: &shared::circuit::CircuitParams,
         output_dir: &Path,
-    ) -> Result<(), shared::errors::ZkfheError> {
+    ) -> Result<(), shared::errors::ZkFheError> {
         // Use the config from the params to get the data
         let bounds = self.get_bounds(&params.config)?;
         let vectors_standard = self.get_vectors_standard_form(&params.config)?;

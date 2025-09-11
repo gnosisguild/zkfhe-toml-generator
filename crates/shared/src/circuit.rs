@@ -3,17 +3,10 @@
 //! This module defines the core traits and configuration structures that all
 //! zkFHE circuit implementations must use. It provides a unified interface
 //! for parameter generation, TOML file creation, and configuration validation.
-//!
-//! - **`Circuit`**: The main trait that all circuit implementations must implement
-//! - **`CircuitDimensions`**: Trait for objects that can provide dimensional information
-//! - **`CircuitVectors`**: Trait for circuit-specific vector operations
-//! - **`CircuitBounds`**: Trait for circuit-specific bounds validation
-//! - **Configuration structures**: `CircuitConfig`, `CircuitParams`, `CircuitMetadata`
 use std::path::Path;
-
 use fhe::bfv::BfvParameters;
 use std::sync::Arc;
-use crate::errors::ZkfheResult;
+use crate::errors::ZkFheResult;
 
 /// Circuit trait that all circuit implementations must implement
 ///
@@ -38,28 +31,13 @@ pub trait Circuit {
     /// This method should generate all the circuit-specific parameters
     /// needed for the zero-knowledge proof, including bounds, vectors,
     /// and any other circuit-specific data.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The circuit configuration containing BFV parameters and metadata
-    ///
-    /// # Returns
-    ///
-    /// Returns the generated circuit parameters or an error if generation fails.
-    fn generate_params(&self, config: &CircuitConfig) -> ZkfheResult<CircuitParams>;
+    fn generate_params(&self, config: &CircuitConfig) -> ZkFheResult<CircuitParams>;
 
     /// Generate TOML file for the circuit
     ///
     /// This method should create a TOML file containing all the parameters
     /// needed for the Noir circuit to function correctly.
-    ///
-    /// * `params` - The generated circuit parameters
-    /// * `output_dir` - The directory where the TOML file should be created
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the TOML file was created successfully, or an error otherwise.
-    fn generate_toml(&self, params: &CircuitParams, output_dir: &Path) -> ZkfheResult<()>;
+    fn generate_toml(&self, params: &CircuitParams, output_dir: &Path) -> ZkFheResult<()>;
 }
 
 /// Trait for circuit parameters that can provide dimensions
@@ -150,7 +128,7 @@ pub trait CircuitBounds: CircuitDimensions {
     /// # Returns
     ///
     /// Returns `Ok(())` if the vectors satisfy the bounds, or an error otherwise.
-    fn validate_vectors<V: CircuitVectors>(&self, vectors: &V) -> ZkfheResult<()>;
+    fn validate_vectors<V: CircuitVectors>(&self, vectors: &V) -> ZkFheResult<()>;
 }
 
 /// Configuration for circuit generation
