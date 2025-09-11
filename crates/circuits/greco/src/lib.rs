@@ -10,9 +10,11 @@
 //! - **TOML Generation**: Produces Noir-compatible TOML files
 //! - **Configuration Validation**: Ensures cryptographic parameters are secure
 pub mod bounds;
+pub mod sample;
 pub mod toml;
 pub mod vectors;
 
+use crate::sample::generate_sample_encryption;
 use shared::Circuit;
 use shared::bfv::BfvHelper;
 use shared::circuit::CircuitVectors;
@@ -72,8 +74,10 @@ impl GrecoCircuit {
         config: &shared::circuit::CircuitConfig,
     ) -> Result<shared::bfv::EncryptionData, shared::errors::ZkfheError> {
         let bfv_helper = self.get_bfv_helper(config)?;
-        bfv_helper
-            .generate_sample_encryption()
+        generate_sample_encryption(&bfv_helper.params)
+            .map_err(|e| shared::errors::ZkfheError::Bfv {
+                message: e.to_string(),
+            })
             .map_err(|e| shared::errors::ZkfheError::Bfv {
                 message: e.to_string(),
             })
