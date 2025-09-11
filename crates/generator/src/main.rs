@@ -96,6 +96,10 @@ fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
             let circuit = greco::GrecoCircuit;
             Ok(Box::new(circuit))
         }
+        "pk_pvw" => {
+            let circuit = pk_pvw::PvwPkCircuit;
+            Ok(Box::new(circuit))
+        }
         _ => anyhow::bail!("Unknown circuit: {}", circuit_name),
     }
 }
@@ -173,12 +177,18 @@ fn generate_circuit_params(
     let circuit = get_circuit(circuit_name)?;
     println!("✅ Loaded circuit: {}", circuit.name());
 
-    // Get BFV configuration for preset
-    let bfv_config = get_bfv_config(preset)?;
-    println!(
-        "🔐 BFV Configuration: degree={}, plaintext_modulus={}",
-        bfv_config.degree, bfv_config.plaintext_modulus
-    );
+    // Get BFV configuration for preset (only for circuits that need it)
+    let bfv_config = if circuit_name.to_lowercase() == "greco" {
+        let config = get_bfv_config(preset)?;
+        println!(
+            "🔐 BFV Configuration: degree={}, plaintext_modulus={}",
+            config.degree, config.plaintext_modulus
+        );
+        Some(config)
+    } else {
+        println!("🔐 No BFV configuration needed for this circuit");
+        None
+    };
 
     // Create circuit configuration
     let circuit_config = CircuitConfig {
@@ -243,6 +253,7 @@ fn main() -> anyhow::Result<()> {
             if circuits {
                 println!("📋 Available circuits:");
                 println!("  • greco - Greco circuit implementation");
+                println!("  • pk_pvw - PVW public key circuit");
             }
             if presets {
                 println!("\n⚙️  Available presets:");
@@ -253,6 +264,7 @@ fn main() -> anyhow::Result<()> {
             if !circuits && !presets {
                 println!("📋 Available circuits:");
                 println!("  • greco - Greco circuit implementation");
+                println!("  • pk_pvw - PVW public key circuit");
                 println!("\n⚙️  Available presets:");
                 println!("  • dev   - Development (degree=1024)");
                 println!("  • test  - Testing (degree=2048)");

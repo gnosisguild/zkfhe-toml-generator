@@ -173,8 +173,8 @@ pub trait CircuitBounds: CircuitDimensions {
 /// and metadata.
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
-    /// BFV homomorphic encryption parameters
-    pub bfv_config: BfvConfig,
+    /// Optional BFV homomorphic encryption parameters
+    pub bfv_config: Option<BfvConfig>,
     /// Optional custom parameters that can be overridden
     pub custom_params: Option<CustomParams>,
     /// Metadata about the circuit generation

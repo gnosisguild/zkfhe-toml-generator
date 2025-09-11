@@ -48,7 +48,13 @@ impl GrecoCircuit {
         &self,
         config: &shared::circuit::CircuitConfig,
     ) -> Result<shared::bfv::BfvHelper, shared::errors::ZkfheError> {
-        shared::bfv::BfvHelper::new(config.bfv_config.clone()).map_err(|e| {
+        config.bfv_config.as_ref().ok_or_else(|| {
+            shared::errors::ZkfheError::Circuit {
+                message: "BFV configuration is required for Greco circuit".to_string(),
+            }
+        })?;
+        
+        shared::bfv::BfvHelper::new(config.bfv_config.as_ref().unwrap().clone()).map_err(|e| {
             shared::errors::ZkfheError::Bfv {
                 message: e.to_string(),
             }
@@ -253,13 +259,20 @@ impl Circuit for GrecoCircuit {
         &self,
         config: &shared::circuit::CircuitConfig,
     ) -> Result<(), shared::errors::ZkfheError> {
+        // Ensure BFV configuration is present for Greco circuit
+        let bfv_config = config.bfv_config.as_ref().ok_or_else(|| {
+            shared::errors::ZkfheError::Circuit {
+                message: "BFV configuration is required for Greco circuit".to_string(),
+            }
+        })?;
+
         // Validate BFV configuration using shared validation utilities
-        shared::validation::validate_degree_bounds(config.bfv_config.degree)?;
-        shared::validation::validate_plaintext_modulus(config.bfv_config.plaintext_modulus)?;
-        shared::validation::validate_ciphertext_moduli(&config.bfv_config.moduli)?;
+        shared::validation::validate_degree_bounds(bfv_config.degree)?;
+        shared::validation::validate_plaintext_modulus(bfv_config.plaintext_modulus)?;
+        shared::validation::validate_ciphertext_moduli(&bfv_config.moduli)?;
 
         // Test that we can actually create a BFV helper with this config
-        let _bfv_helper = BfvHelper::new(config.bfv_config.clone())?;
+        let _bfv_helper = BfvHelper::new(bfv_config.clone())?;
 
         Ok(())
     }

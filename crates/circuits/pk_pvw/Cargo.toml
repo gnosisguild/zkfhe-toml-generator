@@ -1,0 +1,35 @@
+[package]
+name = "zkfhe-pk-pvw"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "PVW public key circuit parameter generation in Rust"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+shared = { package = "zkfhe-shared", path = "../../shared" }
+pvw = { git = "https://github.com/gnosisguild/pvw-rs", branch = "feat/keys" }
+bigint-poly = { workspace = true }
+blake3 = { workspace = true }
+fhe = { workspace = true }
+fhe-math = { workspace = true }
+fhe-traits = { workspace = true }
+fhe-util = { workspace = true }
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+rand = { workspace = true }
+rayon = { workspace = true }
+itertools = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+anyhow = { workspace = true }
+tempfile = { workspace = true }
+ndarray = { workspace = true }
+chrono = { workspace = true }
