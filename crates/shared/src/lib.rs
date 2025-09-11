@@ -19,7 +19,7 @@ pub mod toml;
 pub mod utils;
 
 // Re-export commonly used items for convenience
-pub use circuit::{Circuit, CircuitConfig, CircuitMetadata, CircuitParams, CustomParams};
+pub use circuit::Circuit;
 pub use constants::{ZKP_MODULUS, get_zkp_modulus};
 pub use errors::{BfvError, CircuitError, TomlError, ValidationError, ZkFheError, ZkFheResult};
 pub use toml::TomlGenerator;

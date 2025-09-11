@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
 use fhe::bfv::{BfvParameters, BfvParametersBuilder};
-use shared::circuit::{Circuit, CircuitConfig, CircuitMetadata};
+use shared::circuit::Circuit;
 use std::sync::Arc;
 
 /// Main CLI structure using clap for argument parsing
@@ -94,7 +94,7 @@ enum Commands {
 fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
     match circuit_name.to_lowercase().as_str() {
         "greco" => {
-            let circuit = greco::GrecoCircuit;
+            let circuit = greco::circuit::GrecoCircuit;
             Ok(Box::new(circuit))
         }
         _ => anyhow::bail!("Unknown circuit: {}", circuit_name),
@@ -116,11 +116,24 @@ fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
 fn get_bfv_config(preset: &str) -> anyhow::Result<Arc<BfvParameters>> {
     Ok(match preset.to_lowercase().as_str() {
         // TODO: need to clearly define the parameters for prod.
-        "dev" => BfvParametersBuilder::new().set_degree(1024).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
-        "test" => BfvParametersBuilder::new().set_degree(2048).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
-        "prod" => BfvParametersBuilder::new().set_degree(2048).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
+        "dev" => BfvParametersBuilder::new()
+            .set_degree(1024)
+            .set_plaintext_modulus(1032193)
+            .set_moduli(&[0x3FFFFFFF000001])
+            .build_arc()?,
+        "test" => BfvParametersBuilder::new()
+            .set_degree(2048)
+            .set_plaintext_modulus(1032193)
+            .set_moduli(&[0x3FFFFFFF000001])
+            .build_arc()?,
+        "prod" => BfvParametersBuilder::new()
+            .set_degree(2048)
+            .set_plaintext_modulus(1032193)
+            .set_moduli(&[0x3FFFFFFF000001])
+            .build_arc()?,
         _ => anyhow::bail!("Unknown preset: {}", preset),
-    }.clone())
+    }
+    .clone())
 }
 
 /// Generate parameters for a circuit
@@ -156,31 +169,21 @@ fn generate_circuit_params(
     let bfv_config = get_bfv_config(preset)?;
     println!(
         "🔐 BFV Configuration: degree={}, plaintext_modulus={}",
-        bfv_config.degree(), bfv_config.plaintext()
+        bfv_config.degree(),
+        bfv_config.plaintext()
     );
-
-    // Create circuit configuration
-    let circuit_config = CircuitConfig {
-        bfv_parameters: bfv_config,
-        custom_params: None,
-        metadata: CircuitMetadata {
-            version: "0.1.0".to_string(),
-            description: format!("Generated for {circuit_name} circuit with {preset} preset",),
-            created_at: chrono::Utc::now(),
-        },
-    };
 
     // Generate parameters
     println!("⚙️  Generating circuit parameters...");
-    let params = circuit
-        .generate_params(&circuit_config)
+    circuit
+        .generate_params(&bfv_config)
         .map_err(|e| anyhow::anyhow!("Failed to generate parameters: {}", e))?;
     println!("✅ Parameters generated successfully");
 
     // Generate TOML file
     println!("📄 Generating TOML file...");
     circuit
-        .generate_toml(&params, output_dir)
+        .generate_toml(&bfv_config, output_dir)
         .map_err(|e| anyhow::anyhow!("Failed to generate TOML: {}", e))?;
     println!("✅ TOML file generated successfully");
 
