@@ -1,8 +1,19 @@
-use fhe::bfv::{BfvParameters, Encoding, Plaintext, PublicKey, SecretKey};
+use fhe::bfv::{BfvParameters, Ciphertext, Encoding, Plaintext, PublicKey, SecretKey};
+use fhe_math::rq::Poly;
 use fhe_traits::FheEncoder;
 use rand::{SeedableRng, rngs::StdRng};
-use shared::bfv::EncryptionData;
 use std::sync::Arc;
+
+/// Data from a sample BFV encryption
+pub struct EncryptionData {
+    pub plaintext: Plaintext,
+    pub ciphertext: Ciphertext,
+    pub public_key: PublicKey,
+    pub secret_key: SecretKey,
+    pub u_rns: Poly,
+    pub e0_rns: Poly,
+    pub e1_rns: Poly,
+}
 
 /// Generate a sample encryption with all the data needed for input validation
 pub fn generate_sample_encryption(

@@ -13,8 +13,9 @@
 use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
-use shared::bfv::BfvConfig;
+use fhe::bfv::{BfvParameters, BfvParametersBuilder};
 use shared::circuit::{Circuit, CircuitConfig, CircuitMetadata};
+use std::sync::Arc;
 
 /// Main CLI structure using clap for argument parsing
 ///
@@ -112,36 +113,24 @@ fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
 /// # Returns
 ///
 /// Returns the BFV configuration for the specified preset or an error if the preset is unknown.
-fn get_bfv_config(preset: &str) -> anyhow::Result<BfvConfig> {
+fn get_bfv_config(preset: &str) -> anyhow::Result<Arc<BfvParameters>> {
     let config = match preset.to_lowercase().as_str() {
         // TODO: need to clearly define the parameters for prod.
-        "dev" => BfvConfig {
-            degree: 1024,
-            plaintext_modulus: 1032193,
-            moduli: vec![0x3FFFFFFF000001],
-        },
-        "test" => BfvConfig {
-            degree: 2048,
-            plaintext_modulus: 1032193,
-            moduli: vec![0x3FFFFFFF000001],
-        },
-        "prod" => BfvConfig {
-            degree: 2048,
-            plaintext_modulus: 1032193,
-            moduli: vec![0x3FFFFFFF000001],
-        },
+        "dev" => BfvParametersBuilder::new().set_degree(1024).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
+        "test" => BfvParametersBuilder::new().set_degree(2048).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
+        "prod" => BfvParametersBuilder::new().set_degree(2048).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
         _ => anyhow::bail!("Unknown preset: {}", preset),
     };
 
     // Validate the configuration
-    shared::validation::validate_degree_bounds(config.degree)
+    shared::validation::validate_degree_bounds(config.degree())
         .map_err(|e| anyhow::anyhow!("Invalid degree: {}", e))?;
-    shared::validation::validate_plaintext_modulus(config.plaintext_modulus)
+    shared::validation::validate_plaintext_modulus(config.plaintext())
         .map_err(|e| anyhow::anyhow!("Invalid plaintext modulus: {}", e))?;
-    shared::validation::validate_ciphertext_moduli(&config.moduli)
+    shared::validation::validate_ciphertext_moduli(&config.moduli())
         .map_err(|e| anyhow::anyhow!("Invalid ciphertext moduli: {}", e))?;
 
-    Ok(config)
+    Ok(config.clone())
 }
 
 /// Generate parameters for a circuit
@@ -177,12 +166,12 @@ fn generate_circuit_params(
     let bfv_config = get_bfv_config(preset)?;
     println!(
         "🔐 BFV Configuration: degree={}, plaintext_modulus={}",
-        bfv_config.degree, bfv_config.plaintext_modulus
+        bfv_config.degree(), bfv_config.plaintext()
     );
 
     // Create circuit configuration
     let circuit_config = CircuitConfig {
-        bfv_config,
+        bfv_parameters: bfv_config,
         custom_params: None,
         metadata: CircuitMetadata {
             version: "1.0.0".to_string(),

@@ -1401,6 +1401,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "fhe",
  "zkfhe-greco",
  "zkfhe-shared",
 ]

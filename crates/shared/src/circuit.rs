@@ -11,7 +11,8 @@
 //! - **Configuration structures**: `CircuitConfig`, `CircuitParams`, `CircuitMetadata`
 use std::path::Path;
 
-use crate::bfv::BfvConfig;
+use fhe::bfv::BfvParameters;
+use std::sync::Arc;
 use crate::errors::ZkfheResult;
 
 /// Circuit trait that all circuit implementations must implement
@@ -174,7 +175,7 @@ pub trait CircuitBounds: CircuitDimensions {
 #[derive(Clone, Debug)]
 pub struct CircuitConfig {
     /// BFV homomorphic encryption parameters
-    pub bfv_config: BfvConfig,
+    pub bfv_parameters: Arc<BfvParameters>,
     /// Optional custom parameters that can be overridden
     pub custom_params: Option<CustomParams>,
     /// Metadata about the circuit generation

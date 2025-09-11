@@ -12,7 +12,6 @@
 //! - **`validation`**: Parameter validation utilities for ensuring correct configurations
 
 // Core modules
-pub mod bfv;
 pub mod circuit;
 pub mod constants;
 pub mod errors;
@@ -20,7 +19,6 @@ pub mod toml;
 pub mod utils;
 
 // Re-export commonly used items for convenience
-pub use bfv::{BfvConfig, BfvHelper, EncryptionData};
 pub use circuit::{Circuit, CircuitConfig, CircuitMetadata, CircuitParams, CustomParams};
 pub use constants::{ZKP_MODULUS, get_zkp_modulus};
 pub use errors::{BfvError, CircuitError, TomlError, ValidationError, ZkfheError, ZkfheResult};

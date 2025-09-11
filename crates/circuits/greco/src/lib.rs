@@ -16,7 +16,6 @@ pub mod vectors;
 
 use crate::sample::generate_sample_encryption;
 use shared::Circuit;
-use shared::bfv::BfvHelper;
 use shared::circuit::CircuitVectors;
 use shared::toml::TomlGenerator;
 use std::path::Path;
@@ -34,29 +33,6 @@ use std::path::Path;
 pub struct GrecoCircuit;
 
 impl GrecoCircuit {
-    /// Get BFV helper with computed parameters
-    ///
-    /// This method creates a BFV helper from the provided configuration,
-    /// which can be used for encryption operations and parameter access.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The circuit configuration containing BFV parameters
-    ///
-    /// # Returns
-    ///
-    /// Returns the BFV helper or an error if creation fails.
-    pub fn get_bfv_helper(
-        &self,
-        config: &shared::circuit::CircuitConfig,
-    ) -> Result<shared::bfv::BfvHelper, shared::errors::ZkfheError> {
-        shared::bfv::BfvHelper::new(config.bfv_config.clone()).map_err(|e| {
-            shared::errors::ZkfheError::Bfv {
-                message: e.to_string(),
-            }
-        })
-    }
-
     /// Get sample encryption data for vector computation
     ///
     /// This method generates sample encryption data that is used to compute
@@ -72,9 +48,8 @@ impl GrecoCircuit {
     pub fn get_sample_encryption_data(
         &self,
         config: &shared::circuit::CircuitConfig,
-    ) -> Result<shared::bfv::EncryptionData, shared::errors::ZkfheError> {
-        let bfv_helper = self.get_bfv_helper(config)?;
-        generate_sample_encryption(&bfv_helper.params)
+    ) -> Result<sample::EncryptionData, shared::errors::ZkfheError> {
+        generate_sample_encryption(&config.bfv_parameters)
             .map_err(|e| shared::errors::ZkfheError::Bfv {
                 message: e.to_string(),
             })
@@ -99,8 +74,7 @@ impl GrecoCircuit {
         &self,
         config: &shared::circuit::CircuitConfig,
     ) -> Result<bounds::GrecoBounds, shared::errors::ZkfheError> {
-        let bfv_helper = self.get_bfv_helper(config)?;
-        bounds::GrecoBounds::compute(&bfv_helper.params, 0)
+        bounds::GrecoBounds::compute(&config.bfv_parameters, 0)
     }
 
     /// Get computed vectors directly
@@ -120,7 +94,6 @@ impl GrecoCircuit {
         config: &shared::circuit::CircuitConfig,
     ) -> Result<vectors::GrecoVectors, shared::errors::ZkfheError> {
         let encryption_data = self.get_sample_encryption_data(config)?;
-        let bfv_helper = self.get_bfv_helper(config)?;
 
         vectors::GrecoVectors::compute(
             &encryption_data.plaintext,
@@ -129,7 +102,7 @@ impl GrecoCircuit {
             &encryption_data.e1_rns,
             &encryption_data.ciphertext,
             &encryption_data.public_key,
-            &bfv_helper.params,
+            &config.bfv_parameters,
         )
     }
 
@@ -258,12 +231,9 @@ impl Circuit for GrecoCircuit {
         config: &shared::circuit::CircuitConfig,
     ) -> Result<(), shared::errors::ZkfheError> {
         // Validate BFV configuration using shared validation utilities
-        shared::validation::validate_degree_bounds(config.bfv_config.degree)?;
-        shared::validation::validate_plaintext_modulus(config.bfv_config.plaintext_modulus)?;
-        shared::validation::validate_ciphertext_moduli(&config.bfv_config.moduli)?;
-
-        // Test that we can actually create a BFV helper with this config
-        let _bfv_helper = BfvHelper::new(config.bfv_config.clone())?;
+        shared::validation::validate_degree_bounds(config.bfv_parameters.degree())?;
+        shared::validation::validate_plaintext_modulus(config.bfv_parameters.plaintext())?;
+        shared::validation::validate_ciphertext_moduli(&config.bfv_parameters.moduli())?;
 
         Ok(())
     }
