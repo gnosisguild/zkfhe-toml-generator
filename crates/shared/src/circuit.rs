@@ -60,20 +60,6 @@ pub trait Circuit {
     ///
     /// Returns `Ok(())` if the TOML file was created successfully, or an error otherwise.
     fn generate_toml(&self, params: &CircuitParams, output_dir: &Path) -> ZkfheResult<()>;
-
-    /// Validate circuit configuration
-    ///
-    /// This method should validate that the provided configuration is
-    /// suitable for this circuit implementation.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The circuit configuration to validate
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the configuration is valid, or an error otherwise.
-    fn validate_config(&self, config: &CircuitConfig) -> ZkfheResult<()>;
 }
 
 /// Trait for circuit parameters that can provide dimensions

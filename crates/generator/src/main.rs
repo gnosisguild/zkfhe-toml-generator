@@ -114,23 +114,13 @@ fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
 ///
 /// Returns the BFV configuration for the specified preset or an error if the preset is unknown.
 fn get_bfv_config(preset: &str) -> anyhow::Result<Arc<BfvParameters>> {
-    let config = match preset.to_lowercase().as_str() {
+    Ok(match preset.to_lowercase().as_str() {
         // TODO: need to clearly define the parameters for prod.
         "dev" => BfvParametersBuilder::new().set_degree(1024).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
         "test" => BfvParametersBuilder::new().set_degree(2048).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
         "prod" => BfvParametersBuilder::new().set_degree(2048).set_plaintext_modulus(1032193).set_moduli(&[0x3FFFFFFF000001]).build_arc()?,
         _ => anyhow::bail!("Unknown preset: {}", preset),
-    };
-
-    // Validate the configuration
-    shared::validation::validate_degree_bounds(config.degree())
-        .map_err(|e| anyhow::anyhow!("Invalid degree: {}", e))?;
-    shared::validation::validate_plaintext_modulus(config.plaintext())
-        .map_err(|e| anyhow::anyhow!("Invalid plaintext modulus: {}", e))?;
-    shared::validation::validate_ciphertext_moduli(&config.moduli())
-        .map_err(|e| anyhow::anyhow!("Invalid ciphertext moduli: {}", e))?;
-
-    Ok(config.clone())
+    }.clone())
 }
 
 /// Generate parameters for a circuit
@@ -174,7 +164,7 @@ fn generate_circuit_params(
         bfv_parameters: bfv_config,
         custom_params: None,
         metadata: CircuitMetadata {
-            version: "1.0.0".to_string(),
+            version: "0.1.0".to_string(),
             description: format!("Generated for {circuit_name} circuit with {preset} preset",),
             created_at: chrono::Utc::now(),
         },

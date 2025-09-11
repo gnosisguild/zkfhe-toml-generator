@@ -208,33 +208,4 @@ impl Circuit for GrecoCircuit {
 
         Ok(())
     }
-
-    /// Validate Greco circuit configuration
-    ///
-    /// This method validates that the provided configuration is suitable
-    /// for the Greco circuit implementation. It checks:
-    ///
-    /// - Degree bounds (must be between 1024-8192)
-    /// - Plaintext modulus (must be non-zero)
-    /// - Ciphertext moduli (must be non-empty and non-zero)
-    /// - BFV helper creation (ensures parameters are valid)
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - The circuit configuration to validate
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the configuration is valid, or an error otherwise.
-    fn validate_config(
-        &self,
-        config: &shared::circuit::CircuitConfig,
-    ) -> Result<(), shared::errors::ZkfheError> {
-        // Validate BFV configuration using shared validation utilities
-        shared::validation::validate_degree_bounds(config.bfv_parameters.degree())?;
-        shared::validation::validate_plaintext_modulus(config.bfv_parameters.plaintext())?;
-        shared::validation::validate_ciphertext_moduli(&config.bfv_parameters.moduli())?;
-
-        Ok(())
-    }
 }
