@@ -10,10 +10,11 @@
 //! - **Preset System**: Pre-configured security levels (dev, test, prod)
 //! - **Validation**: Comprehensive parameter validation and error handling
 //! - **Beautiful Output**: Emoji-rich progress indicators and user feedback
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
-use fhe::bfv::{BfvParameters, BfvParametersBuilder};
+use bfv_params::search::{BfvSearchConfig, bfv_search};
+use fhe::bfv::BfvParametersBuilder;
 use shared::circuit::Circuit;
 use std::sync::Arc;
 
@@ -36,11 +37,13 @@ struct Cli {
 /// This enum defines all the available commands that the CLI supports.
 /// Each command has its own set of arguments and options.
 #[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)]
 enum Commands {
     /// Generate parameters for a specific circuit
     ///
     /// This command generates cryptographic parameters and TOML files
-    /// for the specified circuit using the given preset configuration.
+    /// for the specified circuit. You can either use a preset configuration
+    /// or specify custom BFV parameters directly.
     Generate {
         /// Circuit name to generate parameters for
         ///
@@ -53,8 +56,27 @@ enum Commands {
         ///
         /// The preset determines the security level and cryptographic parameters
         /// used for generation. If not specified, defaults to "dev".
+        /// Custom parameters (--bfv-*) will override preset values.
         #[arg(long, short)]
         preset: Option<String>,
+
+        /// BFV-specific parameters
+        ///
+        /// Use these flags to specify BFV (Brakerski-Fan-Vercauteren) parameters.
+        /// This is the default parameter type for most circuits.
+        #[command(flatten)]
+        bfv: Option<BfvParams>,
+
+        /// PVW-specific parameters (future)
+        ///
+        /// Use these flags to specify PVW parameters.
+        /// This will be available in future versions.
+        #[command(flatten)]
+        pvw: Option<PvwParams>,
+
+        /// Verbose output showing detailed parameter search process
+        #[arg(long, short)]
+        verbose: bool,
 
         /// Output directory for generated files
         ///
@@ -77,6 +99,50 @@ enum Commands {
         #[arg(long)]
         presets: bool,
     },
+}
+
+/// BFV-specific parameters
+#[derive(Args, Debug, Clone)]
+pub struct BfvParams {
+    /// Number of parties n (e.g. ciphernodes)
+    ///
+    /// This parameter affects the security analysis and noise bounds.
+    /// If not specified, uses the preset default or 1000.
+    #[arg(long)]
+    n: Option<u128>,
+
+    /// Number of fresh ciphertext additions z (number of votes)
+    ///
+    /// Note that the BFV plaintext modulus k will be defined as k = z.
+    /// If not specified, uses the preset default or 1000.
+    #[arg(long)]
+    z: Option<u128>,
+
+    /// Statistical Security parameter λ (negl(λ)=2^{-λ})
+    ///
+    /// Higher values provide stronger security guarantees but may require
+    /// larger parameters. If not specified, uses the preset default or 80.
+    #[arg(long)]
+    lambda: Option<u32>,
+
+    /// Bound B on the error distribution ψ
+    ///
+    /// Used to generate e1 when encrypting (e.g., 20 for CBD with σ≈3.2).
+    /// If not specified, uses the preset default or 20.
+    #[arg(long)]
+    b: Option<u128>,
+}
+
+/// PVW-specific parameters (future)
+#[derive(Args, Debug, Clone)]
+pub struct PvwParams {
+    /// PVW-specific parameter 1 (placeholder)
+    #[arg(long)]
+    param1: Option<u128>,
+
+    /// PVW-specific parameter 2 (placeholder)
+    #[arg(long)]
+    param2: Option<u32>,
 }
 
 /// Circuit registry - maps circuit names to their implementations
@@ -112,28 +178,96 @@ fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
 ///
 /// # Returns
 ///
-/// Returns the BFV configuration for the specified preset or an error if the preset is unknown.
-fn get_bfv_config(preset: &str) -> anyhow::Result<Arc<BfvParameters>> {
-    Ok(match preset.to_lowercase().as_str() {
-        // TODO: need to clearly define the parameters for prod.
-        "dev" => BfvParametersBuilder::new()
-            .set_degree(1024)
-            .set_plaintext_modulus(1032193)
-            .set_moduli(&[0x3FFFFFFF000001])
-            .build_arc()?,
-        "test" => BfvParametersBuilder::new()
-            .set_degree(2048)
-            .set_plaintext_modulus(1032193)
-            .set_moduli(&[0x3FFFFFFF000001])
-            .build_arc()?,
-        "prod" => BfvParametersBuilder::new()
-            .set_degree(2048)
-            .set_plaintext_modulus(1032193)
-            .set_moduli(&[0x3FFFFFFF000001])
-            .build_arc()?,
-        _ => anyhow::bail!("Unknown preset: {}", preset),
+/// Parameter type enumeration for different FHE schemes
+#[derive(Debug, Clone)]
+pub enum ParameterType {
+    Bfv(BfvSearchConfig),
+    Pvw, // TODO: PVW implementation
+}
+
+impl ParameterType {
+    /// Resolve parameter type and configuration from CLI arguments
+    pub     fn from_cli_args(
+        preset: Option<&str>,
+        bfv: Option<BfvParams>,
+        pvw: Option<PvwParams>,
+        verbose: bool,
+    ) -> anyhow::Result<Self> {
+        // Determine which parameter type to use
+        match (bfv, pvw) {
+            (Some(bfv_params), None) => {
+                let config = create_bfv_config(preset, bfv_params, verbose)?;
+                Ok(ParameterType::Bfv(config))
+            }
+            (None, Some(_pvw_params)) => {
+                // TODO: PVW implementation
+                anyhow::bail!("PVW parameters not yet implemented")
+            }
+            (None, None) => {
+                // Default to BFV with preset
+                let config = create_bfv_config(preset, BfvParams {
+                    n: None,
+                    z: None,
+                    lambda: None,
+                    b: None,
+                }, verbose)?;
+                Ok(ParameterType::Bfv(config))
+            }
+            _ => {
+                anyhow::bail!("Only one parameter type can be specified at a time")
+            }
+        }
     }
-    .clone())
+}
+
+/// Create BFV search configuration from CLI arguments
+fn create_bfv_config(
+    preset: Option<&str>,
+    bfv_params: BfvParams,
+    verbose: bool,
+) -> anyhow::Result<BfvSearchConfig> {
+    // Start with preset defaults
+    let mut config = match preset.unwrap_or("dev") {
+        // TODO: there's currently no difference between dev, test and prod.
+        "dev" => BfvSearchConfig {
+            n: 1000,
+            z: 1000,
+            lambda: 80,
+            b: 20,
+            verbose,
+        },
+        "test" => BfvSearchConfig {
+            n: 1000,
+            z: 1000,
+            lambda: 80,
+            b: 20,
+            verbose,
+        },
+        "prod" => BfvSearchConfig {
+            n: 10000,
+            z: 10000,
+            lambda: 80,
+            b: 20,
+            verbose,
+        },
+        _ => anyhow::bail!("Unknown preset: {}", preset.unwrap()),
+    };
+
+    // Override with custom values if provided
+    if let Some(n_val) = bfv_params.n {
+        config.n = n_val;
+    }
+    if let Some(z_val) = bfv_params.z {
+        config.z = z_val;
+    }
+    if let Some(lambda_val) = bfv_params.lambda {
+        config.lambda = lambda_val;
+    }
+    if let Some(b_val) = bfv_params.b {
+        config.b = b_val;
+    }
+
+    Ok(config)
 }
 
 /// Generate parameters for a circuit
@@ -155,18 +289,52 @@ fn get_bfv_config(preset: &str) -> anyhow::Result<Arc<BfvParameters>> {
 /// Returns `Ok(())` if generation was successful, or an error otherwise.
 fn generate_circuit_params(
     circuit_name: &str,
-    preset: &str,
+    preset: Option<&str>,
+    bfv: Option<BfvParams>,
+    pvw: Option<PvwParams>,
+    verbose: bool,
     output_dir: &Path,
 ) -> anyhow::Result<()> {
     println!("🔧 Generating parameters for circuit: {circuit_name}");
-    println!("📋 Using preset: {preset}");
+
+    // Resolve parameter type and configuration
+    let param_type = ParameterType::from_cli_args(preset, bfv, pvw, verbose)?;
+
+    if let Some(preset_name) = preset {
+        println!("📋 Using preset: {preset_name}");
+    }
 
     // Get circuit implementation
     let circuit = get_circuit(circuit_name)?;
     println!("✅ Loaded circuit: {}", circuit.name());
 
-    // Get BFV configuration for preset
-    let bfv_config = get_bfv_config(preset)?;
+    // Generate parameters based on type
+    let bfv_config = match param_type {
+        ParameterType::Bfv(config) => {
+            println!(
+                "🔐 BFV Parameters: n={}, z={}, λ={}, B={}",
+                config.n, config.z, config.lambda, config.b
+            );
+            println!("⚙️  Searching for optimal BFV parameters...");
+
+            let result = bfv_search(&config)?;
+
+            // TODO: here there's the problem that we can set moduli just for &[u64], not for &[u128].
+
+            Arc::new(
+                BfvParametersBuilder::new()
+                    .set_degree(result.d as usize)
+                    .set_plaintext_modulus(result.k_plain_eff as u64)
+                    .set_moduli(result.qi_values().as_slice())
+                    .build_arc()
+                    .unwrap(),
+            )
+        }
+        ParameterType::Pvw => {
+            anyhow::bail!("PVW parameters not yet implemented")
+        }
+    };
+
     println!(
         "🔐 BFV Configuration: degree={}, plaintext_modulus={}",
         bfv_config.degree(),
@@ -212,14 +380,15 @@ fn main() -> anyhow::Result<()> {
         Commands::Generate {
             circuit,
             preset,
+            bfv,
+            pvw,
+            verbose,
             output,
         } => {
-            let preset = preset.unwrap_or_else(|| "dev".to_string());
-
             // Ensure output directory exists
             std::fs::create_dir_all(&output)?;
 
-            generate_circuit_params(&circuit, &preset, &output)?;
+            generate_circuit_params(&circuit, preset.as_deref(), bfv, pvw, verbose, &output)?;
         }
         Commands::List { circuits, presets } => {
             if circuits {
@@ -228,17 +397,21 @@ fn main() -> anyhow::Result<()> {
             }
             if presets {
                 println!("\n⚙️  Available presets:");
-                println!("  • dev   - Development (degree=1024)");
-                println!("  • test  - Testing (degree=2048)");
-                println!("  • prod  - Production (128-bit security, degree=?)");
+                println!("  • dev   - Development (n=100, z=100, λ=40, B=20)");
+                println!("  • test  - Testing (n=1000, z=1000, λ=80, B=20)");
+                println!("  • prod  - Production (n=10000, z=10000, λ=128, B=20)");
+                println!("\n💡 Custom BFV parameters can be specified with --bfv-* flags");
+                println!("   Example: --bfv-n 2000 --bfv-lambda 128");
             }
             if !circuits && !presets {
                 println!("📋 Available circuits:");
                 println!("  • greco - Greco circuit implementation");
                 println!("\n⚙️  Available presets:");
-                println!("  • dev   - Development (degree=1024)");
-                println!("  • test  - Testing (degree=2048)");
-                println!("  • prod  - Production (128-bit security, degree=?)");
+                println!("  • dev   - Development (n=100, z=100, λ=40, B=20)");
+                println!("  • test  - Testing (n=1000, z=1000, λ=80, B=20)");
+                println!("  • prod  - Production (n=10000, z=10000, λ=128, B=20)");
+                println!("\n💡 Custom BFV parameters can be specified with --bfv-* flags");
+                println!("   Example: --bfv-n 2000 --bfv-lambda 128");
             }
         }
     }

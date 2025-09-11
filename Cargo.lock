@@ -1395,6 +1395,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "zkfhe-bfv-params"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "fhe",
+ "num-bigint",
+ "num-traits",
+ "thiserror",
+ "zkfhe-shared",
+]
+
+[[package]]
 name = "zkfhe-generator"
 version = "0.1.0"
 dependencies = [
@@ -1402,6 +1415,7 @@ dependencies = [
  "chrono",
  "clap",
  "fhe",
+ "zkfhe-bfv-params",
  "zkfhe-greco",
  "zkfhe-shared",
 ]
