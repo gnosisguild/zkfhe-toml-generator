@@ -14,7 +14,8 @@ use clap::{Args, Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
 use crypto_params::bfv::{BfvSearchConfig, bfv_search};
-use crypto_params::pvw::PvwSearchConfig;
+use crypto_params::pvw::{PvwSearchConfig, pvw_search};
+use crypto_params::utils::{approx_bits_from_log2, log2_big};
 use fhe::bfv::BfvParametersBuilder;
 use shared::{Circuit, SupportedParameterType};
 
@@ -509,9 +510,48 @@ fn generate_circuit_params(
         );
         println!("⚙️  PVW parameters computed using BFV result as starting point");
 
-        // TODO: Implement actual PVW search here when pvw_search function is available
-        // let pvw_result = pvw_search(pvw_config)?;
-        println!("✅ PVW parameters prepared (search implementation pending)");
+        println!("⚙️  Computing PVW parameters...");
+        let pvw_result = pvw_search(pvw_config, &bfv_result.selected_primes)?;
+
+        if verbose {
+            println!("\n=== PVW Result (summary) ===");
+            println!("ell (redundancy parameter)     = {}", pvw_result.ell);
+            println!("k (LWE dimension)              = {}", pvw_result.k);
+            println!("sigma_e1 (error bound 1)       = {}", pvw_result.sigma1);
+            println!("sigma_e2 (error bound 2)       = {}", pvw_result.sigma2);
+            println!(
+                "delta_log2                     = {:.6}",
+                pvw_result.delta_log2
+            );
+            println!("q_PVW bits                     = {}", pvw_result.q_pvw_bits);
+            println!(
+                "PVW primes used                = {}",
+                pvw_result.pvw_primes_used
+            );
+            println!(
+                "log2(LHS)                      = {:.6}",
+                pvw_result.lhs_log2
+            );
+            println!(
+                "log2(RHS)                      = {:.6}",
+                pvw_result.rhs_log2
+            );
+            println!(
+                "PVW primes used ({}): {}",
+                pvw_result.used_pvw_list.len(),
+                pvw_result
+                    .used_pvw_list
+                    .iter()
+                    .map(|p| format!(
+                        "0x{} ({} bits)",
+                        p.to_str_radix(16),
+                        approx_bits_from_log2(log2_big(p))
+                    ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        println!("✅ PVW parameters computed successfully");
     }
 
     // Build BFV parameters for circuit use

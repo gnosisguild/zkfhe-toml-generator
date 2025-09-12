@@ -1,5 +1,6 @@
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
+use std::cmp::Ordering;
 
 pub fn parse_hex_big(s: &str) -> BigUint {
     let t = s.trim_start_matches("0x");
@@ -49,4 +50,39 @@ pub fn fmt_big_summary(x: &BigUint) -> String {
 
 pub fn big_shift_pow2(exp: u32) -> BigUint {
     BigUint::one() << exp
+}
+
+pub fn ceil_to_u128(x: f64) -> u128 {
+    x.ceil() as u128
+}
+
+pub fn big_pow(base: &BigUint, exp: u64) -> BigUint {
+    let mut res = BigUint::one();
+    for _ in 0..exp {
+        res *= base;
+    }
+    res
+}
+
+pub fn nth_root_floor(a: &BigUint, n: u32) -> BigUint {
+    if n <= 1 {
+        return a.clone();
+    }
+    if a.is_zero() {
+        return BigUint::zero();
+    }
+    let bits: usize = a.bits() as usize;
+    let n_usize: usize = n as usize;
+    let ub = BigUint::one() << bits.div_ceil(n_usize);
+    let mut lo = BigUint::one();
+    let mut hi = ub;
+    while lo < hi {
+        let mid = (&lo + &hi + BigUint::one()) >> 1;
+        let mid_pow = big_pow(&mid, n as u64);
+        match mid_pow.cmp(a) {
+            Ordering::Less | Ordering::Equal => lo = mid,
+            Ordering::Greater => hi = mid - BigUint::one(),
+        }
+    }
+    lo
 }

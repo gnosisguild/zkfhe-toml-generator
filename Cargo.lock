@@ -1402,6 +1402,7 @@ dependencies = [
  "clap",
  "fhe",
  "num-bigint",
+ "num-integer",
  "num-traits",
  "thiserror",
  "zkfhe-shared",
