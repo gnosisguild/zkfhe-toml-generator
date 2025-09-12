@@ -3,8 +3,8 @@ use crate::sample::generate_sample_encryption;
 use crate::toml::GrecoTomlGenerator;
 use crate::vectors::GrecoVectors;
 use fhe::bfv::BfvParameters;
-use shared::Circuit;
 use shared::toml::TomlGenerator;
+use shared::{Circuit, SupportedParameterType};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -35,6 +35,14 @@ impl Circuit for GrecoCircuit {
     /// and its intended use case.
     fn description(&self) -> &'static str {
         "Greco zero-knowledge proof circuit for BFV homomorphic encryption"
+    }
+
+    /// Returns the parameter types supported by the Greco circuit
+    ///
+    /// Greco only supports BFV parameters since it's specifically designed
+    /// for proving BFV homomorphic encryption correctness.
+    fn supported_parameter_types(&self) -> SupportedParameterType {
+        SupportedParameterType::Bfv
     }
 
     fn generate_params(

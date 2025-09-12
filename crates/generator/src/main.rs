@@ -14,8 +14,9 @@ use clap::{Args, Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
 use crypto_params::bfv::{BfvSearchConfig, bfv_search};
+use crypto_params::pvw::PvwSearchConfig;
 use fhe::bfv::BfvParametersBuilder;
-use shared::circuit::Circuit;
+use shared::{Circuit, SupportedParameterType};
 
 /// Main CLI structure using clap for argument parsing
 ///
@@ -108,7 +109,7 @@ pub struct BfvParams {
     /// This parameter affects the security analysis and noise bounds.
     /// If not specified, uses the preset default or 1000.
     #[arg(long)]
-    n: Option<u128>,
+    bfv_n: Option<u128>,
 
     /// Number of fresh ciphertext additions z (number of votes)
     ///
@@ -132,16 +133,49 @@ pub struct BfvParams {
     b: Option<u128>,
 }
 
-/// PVW-specific parameters (future)
+/// Propose PVW parameter sets, **starting with q_PVW = q_BFV**:
+/// 1) Compute q_BFV from the provided CRT primes (default or override)
+/// 2) First evaluate PVW with q_PVW = q_BFV (no extra primes)
+/// 3) If needed, grow q_PVW by multiplying primes from a size-aware pool:
+///      - target_bits = min bit-length among BFV CRT primes
+///      - try more primes of bit-length == target_bits, then escalate to larger bit-lengths
 #[derive(Args, Debug, Clone)]
 pub struct PvwParams {
-    /// PVW-specific parameter 1 (placeholder)
+    /// Number of parties n (e.g. ciphernodes) - if not provided, uses BFV n value
     #[arg(long)]
-    param1: Option<u128>,
+    pvw_n: Option<usize>,
 
-    /// PVW-specific parameter 2 (placeholder)
+    /// Start ell (power of two, ≥ 2), where ell is the redundency parameter.
     #[arg(long)]
-    param2: Option<u32>,
+    ell_start: Option<usize>,
+
+    /// Maximum ell (doubling schedule stops here)
+    #[arg(long)]
+    ell_max: Option<usize>,
+
+    /// k start (doubling schedule), k here is the LWE dimension
+    #[arg(long)]
+    k_start: Option<usize>,
+
+    /// k max (inclusive). Default = 32768
+    #[arg(long)]
+    k_max: Option<usize>,
+
+    /// α in Δ = floor(q_PVW^(α/ℓ)). Common choices: 1 or 2
+    #[arg(long)]
+    delta_power_num: Option<u32>,
+
+    /// Override q_BFV primes (comma-separated). Accepts hex (0x...) or decimal.
+    /// Examples:
+    ///   --qbfv-primes "0x00800000022a0001,0x00800000021a0001"
+    ///   --qbfv-primes "562949951979521,562949951881217,562949951619073"
+    #[arg(long)]
+    qbfv_primes: Option<String>,
+
+    /// Limit how many extra PVW primes to enumerate (growth steps) beyond the initial q_BFV.
+    /// Default: 4 (tweak as needed).
+    #[arg(long)]
+    max_pvw_growth: Option<usize>,
 }
 
 /// Circuit registry - maps circuit names to their implementations
@@ -177,56 +211,46 @@ fn get_circuit(circuit_name: &str) -> anyhow::Result<Box<dyn Circuit>> {
 ///
 /// # Returns
 ///
-/// Parameter type enumeration for different FHE schemes
+/// Parameter configuration that can handle both BFV and PVW
 #[derive(Debug, Clone)]
-pub enum ParameterType {
-    Bfv(BfvSearchConfig),
-    Pvw, // TODO: PVW implementation
+pub struct ParameterConfig {
+    pub bfv_config: BfvSearchConfig,
+    pub pvw_config: Option<PvwSearchConfig>,
 }
 
-impl ParameterType {
-    /// Resolve parameter type and configuration from CLI arguments
+impl ParameterConfig {
+    /// Create parameter configuration from CLI arguments
     pub fn from_cli_args(
         preset: Option<&str>,
         bfv: Option<BfvParams>,
         pvw: Option<PvwParams>,
         verbose: bool,
     ) -> anyhow::Result<Self> {
-        // Determine which parameter type to use
-        match (bfv, pvw) {
-            (Some(bfv_params), None) => {
-                let config = create_bfv_config(preset, bfv_params, verbose)?;
-                Ok(ParameterType::Bfv(config))
-            }
-            (None, Some(_pvw_params)) => {
-                // TODO: PVW implementation
-                anyhow::bail!("PVW parameters not yet implemented")
-            }
-            (None, None) => {
-                // Default to BFV with preset
-                let config = create_bfv_config(
-                    preset,
-                    BfvParams {
-                        n: None,
-                        z: None,
-                        lambda: None,
-                        b: None,
-                    },
-                    verbose,
-                )?;
-                Ok(ParameterType::Bfv(config))
-            }
-            _ => {
-                anyhow::bail!("Only one parameter type can be specified at a time")
-            }
-        }
+        // Always create BFV config first (needed as base for PVW)
+        let bfv_config = create_bfv_config(preset, bfv, verbose)?;
+
+        // If PVW params provided, create PVW config that derives from BFV
+        let pvw_config = if pvw.is_some() {
+            // Step 1: Create initial PVW config from preset + CLI args (like BFV)
+            let mut pvw_config = create_pvw_config(preset, pvw, verbose)?;
+            // Step 2: Update it with BFV computation results
+            pvw_config = update_pvw_config_with_bfv(pvw_config, &bfv_config, verbose)?;
+            Some(pvw_config)
+        } else {
+            None
+        };
+
+        Ok(ParameterConfig {
+            bfv_config,
+            pvw_config,
+        })
     }
 }
 
 /// Create BFV search configuration from CLI arguments
 fn create_bfv_config(
     preset: Option<&str>,
-    bfv_params: BfvParams,
+    bfv_params: Option<BfvParams>,
     verbose: bool,
 ) -> anyhow::Result<BfvSearchConfig> {
     // Start with preset defaults
@@ -257,20 +281,161 @@ fn create_bfv_config(
     };
 
     // Override with custom values if provided
-    if let Some(n_val) = bfv_params.n {
-        config.n = n_val;
-    }
-    if let Some(z_val) = bfv_params.z {
-        config.z = z_val;
-    }
-    if let Some(lambda_val) = bfv_params.lambda {
-        config.lambda = lambda_val;
-    }
-    if let Some(b_val) = bfv_params.b {
-        config.b = b_val;
+    if let Some(bfv_params) = bfv_params {
+        if let Some(n_val) = bfv_params.bfv_n {
+            config.n = n_val;
+        }
+        if let Some(z_val) = bfv_params.z {
+            config.z = z_val;
+        }
+        if let Some(lambda_val) = bfv_params.lambda {
+            config.lambda = lambda_val;
+        }
+        if let Some(b_val) = bfv_params.b {
+            config.b = b_val;
+        }
     }
 
     Ok(config)
+}
+
+/// Create PVW search configuration from preset and CLI arguments (similar to BFV pattern)
+fn create_pvw_config(
+    preset: Option<&str>,
+    pvw_params: Option<PvwParams>,
+    verbose: bool,
+) -> anyhow::Result<PvwSearchConfig> {
+    // Start with preset defaults (similar to BFV)
+    let mut config = match preset.unwrap_or("dev") {
+        "dev" => PvwSearchConfig {
+            n: 1000, // Default, can be overridden by BFV result or PVW param
+            ell_start: 2,
+            ell_max: 64,
+            k_start: 1024,
+            k_max: 32768,
+            delta_power_num: 1,
+            qbfv_primes: None, // Will be set from BFV computation
+            max_pvw_growth: None,
+            verbose,
+        },
+        "test" => PvwSearchConfig {
+            n: 1000,
+            ell_start: 2,
+            ell_max: 64,
+            k_start: 1024,
+            k_max: 32768,
+            delta_power_num: 1,
+            qbfv_primes: None,
+            max_pvw_growth: None,
+            verbose,
+        },
+        "prod" => PvwSearchConfig {
+            n: 1000,
+            ell_start: 2,
+            ell_max: 64,
+            k_start: 1024,
+            k_max: 32768,
+            delta_power_num: 1,
+            qbfv_primes: None,
+            max_pvw_growth: None,
+            verbose,
+        },
+        _ => anyhow::bail!("Unknown preset: {}", preset.unwrap()),
+    };
+
+    // Override with custom PVW values if provided
+    if let Some(pvw_params) = pvw_params {
+        if let Some(n_val) = pvw_params.pvw_n {
+            config.n = n_val as u128;
+        }
+        if let Some(ell_start_val) = pvw_params.ell_start {
+            config.ell_start = ell_start_val;
+        }
+        if let Some(ell_max_val) = pvw_params.ell_max {
+            config.ell_max = ell_max_val;
+        }
+        if let Some(k_start_val) = pvw_params.k_start {
+            config.k_start = k_start_val;
+        }
+        if let Some(k_max_val) = pvw_params.k_max {
+            config.k_max = k_max_val;
+        }
+        if let Some(delta_power_num_val) = pvw_params.delta_power_num {
+            config.delta_power_num = delta_power_num_val;
+        }
+        if let Some(qbfv_primes_val) = pvw_params.qbfv_primes {
+            config.qbfv_primes = Some(qbfv_primes_val);
+        }
+        if let Some(max_pvw_growth_val) = pvw_params.max_pvw_growth {
+            config.max_pvw_growth = Some(max_pvw_growth_val);
+        }
+    }
+
+    Ok(config)
+}
+
+/// Update PVW config with BFV computation results
+fn update_pvw_config_with_bfv(
+    mut pvw_config: PvwSearchConfig,
+    bfv_config: &BfvSearchConfig,
+    verbose: bool,
+) -> anyhow::Result<PvwSearchConfig> {
+    // Run BFV search to get the modulus that PVW will start from
+    println!("⚙️  Computing BFV parameters for PVW derivation...");
+    let bfv_result = bfv_search(bfv_config)?;
+
+    if verbose {
+        println!("🔐 BFV Result for PVW: q_bfv={}", bfv_result.q_bfv);
+    }
+
+    // If no explicit PVW n was provided, use BFV n
+    if pvw_config.n == 1000 {
+        // This is the default, so likely wasn't explicitly set
+        pvw_config.n = bfv_config.n;
+    }
+
+    // If no explicit qbfv_primes provided, use computed BFV modulus
+    if pvw_config.qbfv_primes.is_none() {
+        pvw_config.qbfv_primes = Some(bfv_result.q_bfv.to_string());
+    }
+
+    Ok(pvw_config)
+}
+
+/// Validate that the provided parameters are compatible with the circuit
+fn validate_parameter_compatibility(
+    circuit: &dyn Circuit,
+    param_config: &ParameterConfig,
+) -> anyhow::Result<()> {
+    let supported_types = circuit.supported_parameter_types();
+    let has_pvw = param_config.pvw_config.is_some();
+
+    match supported_types {
+        SupportedParameterType::Bfv => {
+            if has_pvw {
+                println!(
+                    "⚠️  Warning: Circuit '{}' only supports BFV parameters, but PVW parameters were provided.",
+                    circuit.name()
+                );
+                println!("   PVW parameters will be ignored for this circuit.");
+                println!("   To suppress this warning, use only --bfv-* flags with this circuit.");
+            }
+        }
+        SupportedParameterType::Pvw => {
+            if !has_pvw {
+                anyhow::bail!(
+                    "Circuit '{}' requires PVW parameters, but none were provided. \
+                     Please provide PVW parameters using --pvw-* flags.",
+                    circuit.name()
+                );
+            }
+        }
+        SupportedParameterType::Both => {
+            // Both parameter types are supported, no validation needed
+        }
+    }
+
+    Ok(())
 }
 
 /// Generate parameters for a circuit
@@ -300,8 +465,8 @@ fn generate_circuit_params(
 ) -> anyhow::Result<()> {
     println!("🔧 Generating parameters for circuit: {circuit_name}");
 
-    // Resolve parameter type and configuration
-    let param_type = ParameterType::from_cli_args(preset, bfv, pvw, verbose)?;
+    // Create parameter configuration
+    let param_config = ParameterConfig::from_cli_args(preset, bfv, pvw, verbose)?;
 
     if let Some(preset_name) = preset {
         println!("📋 Using preset: {preset_name}");
@@ -311,50 +476,69 @@ fn generate_circuit_params(
     let circuit = get_circuit(circuit_name)?;
     println!("✅ Loaded circuit: {}", circuit.name());
 
-    // Generate parameters based on type
-    let bfv_config = match param_type {
-        ParameterType::Bfv(config) => {
-            println!(
-                "🔐 BFV Parameters: n={}, z={}, λ={}, B={}",
-                config.n, config.z, config.lambda, config.b
-            );
-            println!("⚙️  Searching for optimal BFV parameters...");
+    // Validate parameter compatibility
+    validate_parameter_compatibility(circuit.as_ref(), &param_config)?;
 
-            let result = bfv_search(&config)?;
+    // Generate BFV parameters (always needed)
+    println!(
+        "🔐 BFV Parameters: n={}, z={}, λ={}, B={}",
+        param_config.bfv_config.n,
+        param_config.bfv_config.z,
+        param_config.bfv_config.lambda,
+        param_config.bfv_config.b
+    );
+    println!("⚙️  Searching for optimal BFV parameters...");
 
-            println!(
-                "🔐 BFV Parameters: qi_values={:?}",
-                result.qi_values().as_slice()
-            );
-            BfvParametersBuilder::new()
-                .set_degree(result.d as usize)
-                .set_plaintext_modulus(result.k_plain_eff as u64)
-                .set_moduli(result.qi_values().as_slice())
-                .build_arc()
-                .unwrap()
-        }
-        ParameterType::Pvw => {
-            anyhow::bail!("PVW parameters not yet implemented")
-        }
-    };
+    let bfv_result = bfv_search(&param_config.bfv_config)?;
+
+    println!(
+        "🔐 BFV Result: qi_values={:?}",
+        bfv_result.qi_values().as_slice()
+    );
+
+    // Generate PVW parameters if requested
+    if let Some(pvw_config) = &param_config.pvw_config {
+        println!(
+            "🔐 PVW Parameters: n={}, ell_start={}, ell_max={}, k_start={}, k_max={}, delta_power_num={}",
+            pvw_config.n,
+            pvw_config.ell_start,
+            pvw_config.ell_max,
+            pvw_config.k_start,
+            pvw_config.k_max,
+            pvw_config.delta_power_num
+        );
+        println!("⚙️  PVW parameters computed using BFV result as starting point");
+
+        // TODO: Implement actual PVW search here when pvw_search function is available
+        // let pvw_result = pvw_search(pvw_config)?;
+        println!("✅ PVW parameters prepared (search implementation pending)");
+    }
+
+    // Build BFV parameters for circuit use
+    let bfv_params = BfvParametersBuilder::new()
+        .set_degree(bfv_result.d as usize)
+        .set_plaintext_modulus(bfv_result.k_plain_eff as u64)
+        .set_moduli(bfv_result.qi_values().as_slice())
+        .build_arc()
+        .unwrap();
 
     println!(
         "🔐 BFV Configuration: degree={}, plaintext_modulus={}",
-        bfv_config.degree(),
-        bfv_config.plaintext()
+        bfv_params.degree(),
+        bfv_params.plaintext()
     );
 
     // Generate parameters
     println!("⚙️  Generating circuit parameters...");
     circuit
-        .generate_params(&bfv_config)
+        .generate_params(&bfv_params)
         .map_err(|e| anyhow::anyhow!("Failed to generate parameters: {}", e))?;
     println!("✅ Parameters generated successfully");
 
     // Generate TOML file
     println!("📄 Generating TOML file...");
     circuit
-        .generate_toml(&bfv_config, output_dir)
+        .generate_toml(&bfv_params, output_dir)
         .map_err(|e| anyhow::anyhow!("Failed to generate TOML: {}", e))?;
     println!("✅ TOML file generated successfully");
 
@@ -396,7 +580,7 @@ fn main() -> anyhow::Result<()> {
         Commands::List { circuits, presets } => {
             if circuits {
                 println!("📋 Available circuits:");
-                println!("  • greco - Greco circuit implementation");
+                println!("  • greco - Greco circuit implementation (BFV only)");
             }
             if presets {
                 println!("\n⚙️  Available presets:");
@@ -408,13 +592,14 @@ fn main() -> anyhow::Result<()> {
             }
             if !circuits && !presets {
                 println!("📋 Available circuits:");
-                println!("  • greco - Greco circuit implementation");
+                println!("  • greco - Greco circuit implementation (BFV only)");
                 println!("\n⚙️  Available presets:");
                 println!("  • dev   - Development (n=100, z=100, λ=40, B=20)");
                 println!("  • test  - Testing (n=1000, z=1000, λ=80, B=20)");
                 println!("  • prod  - Production (n=1000, z=1000, λ=80, B=20)");
                 println!("\n💡 Custom BFV parameters can be specified with --bfv-* flags");
                 println!("   Example: --bfv-n 2000 --bfv-lambda 128");
+                println!("\n⚠️  Note: greco circuit only supports BFV parameters");
             }
         }
     }

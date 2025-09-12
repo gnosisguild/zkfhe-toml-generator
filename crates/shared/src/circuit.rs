@@ -8,6 +8,17 @@ use fhe::bfv::BfvParameters;
 use std::path::Path;
 use std::sync::Arc;
 
+/// Supported parameter types for circuits
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SupportedParameterType {
+    /// Circuit supports BFV parameters
+    Bfv,
+    /// Circuit supports PVW parameters  
+    Pvw,
+    /// Circuit supports both BFV and PVW parameters
+    Both,
+}
+
 /// Circuit trait that all circuit implementations must implement
 ///
 /// This trait defines the contract that every zkFHE circuit implementation
@@ -25,6 +36,12 @@ pub trait Circuit {
     /// This should provide a brief description of what the circuit does
     /// and its intended use case.
     fn description(&self) -> &'static str;
+
+    /// Returns the parameter types supported by this circuit
+    ///
+    /// This method should return what types of parameters this circuit
+    /// can work with (BFV only, PVW only, or both).
+    fn supported_parameter_types(&self) -> SupportedParameterType;
 
     /// Generate parameters for the circuit
     ///
