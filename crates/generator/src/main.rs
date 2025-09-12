@@ -16,7 +16,6 @@ use std::path::{Path, PathBuf};
 use bfv_params::search::{BfvSearchConfig, bfv_search};
 use fhe::bfv::BfvParametersBuilder;
 use shared::circuit::Circuit;
-use std::sync::Arc;
 
 /// Main CLI structure using clap for argument parsing
 ///
@@ -244,8 +243,8 @@ fn create_bfv_config(
             verbose,
         },
         "prod" => BfvSearchConfig {
-            n: 10000,
-            z: 10000,
+            n: 1000,
+            z: 1000,
             lambda: 80,
             b: 20,
             verbose,
@@ -319,16 +318,13 @@ fn generate_circuit_params(
 
             let result = bfv_search(&config)?;
 
-            // TODO: here there's the problem that we can set moduli just for &[u64], not for &[u128].
-
-            Arc::new(
-                BfvParametersBuilder::new()
-                    .set_degree(result.d as usize)
-                    .set_plaintext_modulus(result.k_plain_eff as u64)
-                    .set_moduli(result.qi_values().as_slice())
-                    .build_arc()
-                    .unwrap(),
-            )
+            println!("🔐 BFV Parameters: qi_values={:?}", result.qi_values().as_slice());
+            BfvParametersBuilder::new()
+                .set_degree(result.d as usize)
+                .set_plaintext_modulus(result.k_plain_eff as u64)
+                .set_moduli(result.qi_values().as_slice())
+                .build_arc()
+                .unwrap()
         }
         ParameterType::Pvw => {
             anyhow::bail!("PVW parameters not yet implemented")
@@ -399,9 +395,9 @@ fn main() -> anyhow::Result<()> {
                 println!("\n⚙️  Available presets:");
                 println!("  • dev   - Development (n=100, z=100, λ=40, B=20)");
                 println!("  • test  - Testing (n=1000, z=1000, λ=80, B=20)");
-                println!("  • prod  - Production (n=10000, z=10000, λ=128, B=20)");
+                println!("  • prod  - Production (n=1000, z=1000, λ=80, B=20)");
                 println!("\n💡 Custom BFV parameters can be specified with --bfv-* flags");
-                println!("   Example: --bfv-n 2000 --bfv-lambda 128");
+                println!("   Example: --bfv-n 2000 --bfv-lambda 80");
             }
             if !circuits && !presets {
                 println!("📋 Available circuits:");
@@ -409,7 +405,7 @@ fn main() -> anyhow::Result<()> {
                 println!("\n⚙️  Available presets:");
                 println!("  • dev   - Development (n=100, z=100, λ=40, B=20)");
                 println!("  • test  - Testing (n=1000, z=1000, λ=80, B=20)");
-                println!("  • prod  - Production (n=10000, z=10000, λ=128, B=20)");
+                println!("  • prod  - Production (n=1000, z=1000, λ=80, B=20)");
                 println!("\n💡 Custom BFV parameters can be specified with --bfv-* flags");
                 println!("   Example: --bfv-n 2000 --bfv-lambda 128");
             }
