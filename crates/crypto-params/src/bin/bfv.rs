@@ -3,9 +3,9 @@
 //! Standalone command-line tool for searching BFV parameters using NTT-friendly primes.
 
 use clap::Parser;
-use zkfhe_bfv_params::constants::K_MAX;
-use zkfhe_bfv_params::search::{BfvSearchConfig, bfv_search};
-use zkfhe_bfv_params::utils::fmt_big_summary;
+use zkfhe_crypto_params::bfv::{BfvSearchConfig, bfv_search};
+use zkfhe_crypto_params::constants::K_MAX;
+use zkfhe_crypto_params::utils::fmt_big_summary;
 
 #[derive(Parser, Debug, Clone)]
 #[command(

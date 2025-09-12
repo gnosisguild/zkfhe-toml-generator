@@ -13,7 +13,7 @@
 use clap::{Args, Parser, Subcommand};
 use std::path::{Path, PathBuf};
 
-use bfv_params::search::{BfvSearchConfig, bfv_search};
+use crypto_params::bfv::{BfvSearchConfig, bfv_search};
 use fhe::bfv::BfvParametersBuilder;
 use shared::circuit::Circuit;
 
@@ -186,7 +186,7 @@ pub enum ParameterType {
 
 impl ParameterType {
     /// Resolve parameter type and configuration from CLI arguments
-    pub     fn from_cli_args(
+    pub fn from_cli_args(
         preset: Option<&str>,
         bfv: Option<BfvParams>,
         pvw: Option<PvwParams>,
@@ -204,12 +204,16 @@ impl ParameterType {
             }
             (None, None) => {
                 // Default to BFV with preset
-                let config = create_bfv_config(preset, BfvParams {
-                    n: None,
-                    z: None,
-                    lambda: None,
-                    b: None,
-                }, verbose)?;
+                let config = create_bfv_config(
+                    preset,
+                    BfvParams {
+                        n: None,
+                        z: None,
+                        lambda: None,
+                        b: None,
+                    },
+                    verbose,
+                )?;
                 Ok(ParameterType::Bfv(config))
             }
             _ => {
@@ -318,7 +322,10 @@ fn generate_circuit_params(
 
             let result = bfv_search(&config)?;
 
-            println!("🔐 BFV Parameters: qi_values={:?}", result.qi_values().as_slice());
+            println!(
+                "🔐 BFV Parameters: qi_values={:?}",
+                result.qi_values().as_slice()
+            );
             BfvParametersBuilder::new()
                 .set_degree(result.d as usize)
                 .set_plaintext_modulus(result.k_plain_eff as u64)

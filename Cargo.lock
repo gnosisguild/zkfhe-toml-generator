@@ -1395,7 +1395,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zkfhe-bfv-params"
+name = "zkfhe-crypto-params"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1415,7 +1415,7 @@ dependencies = [
  "chrono",
  "clap",
  "fhe",
- "zkfhe-bfv-params",
+ "zkfhe-crypto-params",
  "zkfhe-greco",
  "zkfhe-shared",
 ]

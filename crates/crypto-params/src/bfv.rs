@@ -1,3 +1,8 @@
+//! BFV Parameter Search Library
+//!
+//! This library provides functionality to search for optimal BFV (Brakerski-Fan-Vercauteren)
+//! parameters using NTT-friendly primes. It implements exact arithmetic for security analysis
+//! and parameter validation.
 use crate::constants::{D_POW2_MAX, D_POW2_START, K_MAX};
 use crate::errors::{BfvParamsResult, SearchError, ValidationError};
 use crate::prime::PrimeItem;
@@ -172,9 +177,7 @@ pub fn finalize_bfv_candidate(
         println!("  negl(λ)=2^-{} (exact pow2)", bfv_search_config.lambda);
         println!("  BEnc ≈ 2^{benc_bits}   B_fresh ≈ 2^{bfresh_bits}");
         println!("  B_C      ≈ 2^{bc_bits}   B_sm ≈ 2^{bsm_bits}");
-        println!(
-            "  eq1 logs: log2(LHS)≈{lhs_log2:.3}   log2(Δ)≈{rhs_log2:.3}"
-        );
+        println!("  eq1 logs: log2(LHS)≈{lhs_log2:.3}   log2(Δ)≈{rhs_log2:.3}");
 
         println!(
             "  eq1: 2*(B_C + n*B_sm) {} Δ   => {}",

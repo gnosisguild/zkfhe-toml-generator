@@ -19,7 +19,7 @@ path = "src/main.rs"
 [dependencies]
 shared = { package = "zkfhe-shared", path = "../shared" }
 greco = { package = "zkfhe-greco", path = "../circuits/greco" }
-bfv-params = { package = "zkfhe-bfv-params", path = "../bfv-params" }
+crypto-params = { package = "zkfhe-crypto-params", path = "../crypto-params" }
 fhe = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
